@@ -41,7 +41,6 @@ lint:
         - internal/provider/*_acc_test.go
   enabled:
     - grype@0.112.0
-    - osv-scanner@2.3.8
     - ruff@0.15.13
     - golangci-lint2@2.12.2
     - renovate@43.150.0
@@ -61,6 +60,10 @@ lint:
     - tflint@0.62.1
     - yamllint@1.38.0
   disabled:
+    # osv-scanner 2.x enables Go call analysis by default; Trunk's PR/tmp sandbox
+    # lacks a consistent module graph (govulncheck exits 127). CVE scanning stays
+    # covered by grype. Keep osv-scanner.toml for local CLI use.
+    - osv-scanner
     - trufflehog
     - checkov
     - black
