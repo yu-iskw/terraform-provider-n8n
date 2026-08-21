@@ -1,6 +1,8 @@
 # Terraform Provider for n8n
 
-Manage [n8n](https://n8n.io/) workflows as code with Terraform, using the [n8n Public API](https://docs.n8n.io/connect/n8n-api/).
+Manage [n8n](https://n8n.io/) **team projects** as code with Terraform, using the [n8n Public API](https://docs.n8n.io/connect/n8n-api/projects).
+
+Team-project APIs require an n8n license that includes `feat:projectRole:admin` (Enterprise / a licensed instance). Community self-hosted n8n returns HTTP 403 for these operations.
 
 ## Example Usage
 
@@ -22,28 +24,16 @@ provider "n8n" {
   # requests_per_second     = 20
 }
 
-resource "n8n_workflow" "example" {
-  name   = "example-manual-trigger"
-  active = false
-
-  nodes = jsonencode([
-    {
-      id          = "manual"
-      name        = "When clicking 'Execute workflow'"
-      type        = "n8n-nodes-base.manualTrigger"
-      typeVersion = 1
-      position    = [0, 0]
-      parameters  = {}
-    }
-  ])
-
-  connections = jsonencode({})
-  settings    = jsonencode({})
+resource "n8n_project" "platform" {
+  name              = "platform"
+  delete_protection = false
 }
 
-data "n8n_workflow" "example" {
-  id = n8n_workflow.example.id
+data "n8n_project" "platform" {
+  id = n8n_project.platform.id
 }
+
+data "n8n_projects" "all" {}
 ```
 
 ## Authentication
@@ -60,4 +50,4 @@ go build -v ./
 go generate ./...
 ```
 
-Use `internal/provider` for Terraform wiring and `internal/n8n` for the Public API client.
+Use `internal/provider` for Terraform wiring, `internal/api/controllers` for resource/data-source orchestration, and `internal/n8n` for the Public API client (`models`, versioned `api/v1/<resource>`, `services`).

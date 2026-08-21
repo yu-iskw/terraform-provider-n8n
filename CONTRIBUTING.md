@@ -1,6 +1,6 @@
 # Contributing
 
-This repository is the Terraform provider for n8n (`yu-iskw/n8n`), built with the Terraform Plugin Framework.
+This repository is the Terraform provider for n8n (`yu-iskw/n8n`), built with the Terraform Plugin Framework. It manages n8n **team projects**, not workflows.
 
 ## Prerequisites
 
@@ -32,7 +32,8 @@ make format
 
 - `main.go`: provider server entry point
 - `internal/provider`: provider implementation, resources, data sources, docs embedded by tests, and unit tests
-- `internal/n8n`: n8n Public API HTTP client (`Client.HTTP`, `X-N8N-API-KEY`, optional rate or concurrency limits)
+- `internal/api/controllers`: Terraform-facing orchestrators used by resources and data sources
+- `internal/n8n`: n8n Public API HTTP client (`Client.HTTP`, `X-N8N-API-KEY`, optional rate or concurrency limits) plus `models/`, versioned `api/v1/<resource>/`, and `services/`
 - `examples`: Terraform examples used by documentation generation
 - `docs`: generated or hand-maintained provider documentation
 - `tools`: Go tool dependency tracking for code generation and analysis
@@ -40,23 +41,27 @@ make format
 
 ## Acceptance tests
 
-Two ways to supply a live n8n Public API for `TF_ACC=1` tests:
+Team-project CRUD on a **licensed** n8n needs `feat:projectRole:admin`. Community Docker returns HTTP 403 for those APIs.
 
-### Local Docker (recommended; no hosted instance)
+### Docker fixture (CRUD, import, delete protection)
 
-Requires Docker Compose v2, `curl`, and `python3`. Starts pinned n8n from [`docker-compose.dev.yml`](docker-compose.dev.yml), mints an API key via [`scripts/bootstrap-n8n.sh`](scripts/bootstrap-n8n.sh), then runs acceptance tests:
+`make testacc-docker` builds [`docker-compose.acc.yml`](docker-compose.acc.yml), a Public API stand-in that implements the verified GET/POST/PUT/DELETE `/api/v1/projects` contract. Use this path for local and CI acceptance tests:
 
 ```shell
 make testacc-docker
-# optional: make testacc-docker TESTARGS='-run ^TestAccN8nWorkflow_'
+make testacc-docker TESTARGS='-run ^TestAccN8nProject_'
 ```
 
-### External instance
+### Licensed instance
 
-Copy `.env.template` to `.env`, set `N8N_ENDPOINT` and `N8N_API_KEY`, then:
+Copy `.env.template` to `.env`, set `N8N_ENDPOINT` and `N8N_API_KEY` for a licensed n8n, then:
 
 ```shell
-make testacc TESTARGS='-run ^TestAccN8nWorkflow_'
+make testacc TESTARGS='-run ^TestAccN8nProject_'
 ```
+
+### Community n8n (optional)
+
+[`docker-compose.dev.yml`](docker-compose.dev.yml) still starts pinned Community n8n for live probes. Project acceptance tests skip there with a license 403.
 
 `make test` stays unit-only (`TF_ACC` unset). Do not point acceptance tests at production n8n.

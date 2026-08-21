@@ -14,6 +14,7 @@ Use the HashiCorp Terraform Plugin Framework patterns already present in `intern
 - Put each resource in `internal/provider/resource_<name>.go`.
 - Implement `resource.Resource`, `resource.ResourceWithConfigure` when client data is needed, and `resource.ResourceWithImportState` when import is supported.
 - Keep schema names and behavior aligned with the underlying API.
+- Call `internal/api/controllers` for CRUD, not `internal/n8n/services` directly.
 - Test observable Terraform state behavior.
 
 ## Data Sources

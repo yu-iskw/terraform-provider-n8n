@@ -8,4 +8,13 @@ HTTP client for the [n8n Public API](https://docs.n8n.io/connect/n8n-api/).
 - **Endpoint**: instance URL is normalized to end with `/api/v1`.
 - **Defaults** (when provider omits optional attributes): `10` concurrent requests, `10` requests per second.
 
+## Layout
+
+- `client.go` / `request.go` / `errors.go`: shared HTTP, JSON, 404, and license-403 helpers
+- `models/`: request and response structs
+- `api/v1/<resource>/`: one file per Public API versioned operation (for example `api/v1/projects/list_projects_v1.go`)
+- `services/`: orchestration for awkward APIs (project Read is list-then-find; there is no `GET /projects/{id}`)
+
+Terraform resources and data sources call [`internal/api/controllers`](../api/controllers), which wrap these services. Do not call `services` from `internal/provider`.
+
 Provider attributes are defined in [`internal/provider/provider.go`](../provider/provider.go).

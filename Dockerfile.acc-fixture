@@ -1,0 +1,19 @@
+# Acceptance-test fixture for n8n Public API project endpoints.
+# Community n8n Docker returns 403 for feat:projectRole:admin; this process
+# implements the verified GET/POST/PUT/DELETE /api/v1/projects contract.
+
+FROM golang:1.25-bookworm AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o /n8n-projects-fixture ./cmd/n8n-projects-fixture
+
+FROM debian:bookworm-slim
+COPY --from=build /n8n-projects-fixture /usr/local/bin/n8n-projects-fixture
+ENV N8N_API_KEY=tf-acc-fixture-key
+EXPOSE 5678
+HEALTHCHECK --interval=5s --timeout=5s --retries=12 --start-period=5s \
+  CMD ["/usr/local/bin/n8n-projects-fixture", "-check"]
+USER nobody
+ENTRYPOINT ["/usr/local/bin/n8n-projects-fixture"]

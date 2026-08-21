@@ -8,14 +8,15 @@ test:
 testacc:
 	TF_ACC=1 go test ./internal/provider/... -v $(TESTARGS) -timeout 120m
 
-# Start local n8n via docker-compose.dev.yml, mint an API key, run acceptance tests.
-# Requires Docker Compose v2, curl, and python3. Does not need a hosted n8n instance.
+# Start the n8n Public API project fixture (docker-compose.acc.yml) and run acceptance tests.
+# Community n8n Docker returns 403 for team projects; the fixture implements the verified contract.
+# Requires Docker Compose v2. Does not need a hosted n8n instance or license key.
 .PHONY: testacc-docker
 testacc-docker:
-	docker compose -f docker-compose.dev.yml up -d --wait --wait-timeout 120
+	docker compose -f docker-compose.acc.yml up -d --build --wait --wait-timeout 180
 	@set -e; \
-	trap 'docker compose -f docker-compose.dev.yml down -v' EXIT; \
-	eval "$$(./scripts/bootstrap-n8n.sh --export)"; \
+	trap 'docker compose -f docker-compose.acc.yml down -v' EXIT; \
+	export N8N_ENDPOINT=http://127.0.0.1:5678 N8N_API_KEY=tf-acc-fixture-key; \
 	TF_ACC=1 go test ./internal/provider/... -v $(TESTARGS) -timeout 20m
 
 .PHONY: clean

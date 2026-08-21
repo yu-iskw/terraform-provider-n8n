@@ -12,8 +12,7 @@ Utilities used by provider tests in `internal/provider`.
 
 - Defined in `internal/provider/provider_test.go`.
 - Skips unless `TF_ACC=1`. Requires `N8N_ENDPOINT` and `N8N_API_KEY` for live-API acceptance tests.
-- Prefer `make testacc-docker` (local Compose + bootstrap) over a hosted instance; see [run-acceptance-tests](../run-acceptance-tests/SKILL.md).
-- Prefer `make testacc-docker` (local Compose + bootstrap) over a hosted instance; see [run-acceptance-tests](../run-acceptance-tests/SKILL.md).
+- Prefer `make testacc` against a **licensed** n8n for project APIs (`feat:projectRole:admin`). Community `make testacc-docker` skips those tests.
 
 ## `testAccProtoV6ProviderFactories`
 
@@ -23,4 +22,4 @@ Utilities used by provider tests in `internal/provider`.
 ## Adding acceptance tests
 
 - Build a `provider "n8n" { ... }` block (or rely on `N8N_ENDPOINT` / `N8N_API_KEY`).
-- Example resource address: `n8n_workflow.example` (see `examples/resources/n8n_workflow/resource.tf`).
+- Example resource address: `n8n_project.example` (see `examples/resources/n8n_project/resource.tf`).

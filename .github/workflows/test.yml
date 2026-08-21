@@ -112,13 +112,13 @@ jobs:
         run: |
           go test -v -cover ./internal/...
 
-  # Acceptance tests against a local n8n from docker-compose.dev.yml (no hosted instance / secrets).
+  # Acceptance tests against docker-compose.acc.yml (Public API project fixture).
   # Keep this off the Terraform version matrix to avoid multiplying image pulls and startup time.
   testacc:
     name: Terraform Provider Acceptance Tests
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v5.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -131,17 +131,17 @@ jobs:
           terraform_wrapper: false
       - name: Download dependencies
         run: go mod download
-      - name: Start local n8n
-        run: docker compose -f docker-compose.dev.yml up -d --wait --wait-timeout 120
-      - name: Bootstrap n8n owner and API key
-        run: ./scripts/bootstrap-n8n.sh --github-env
+      - name: Start n8n project API fixture
+        run: docker compose -f docker-compose.acc.yml up -d --build --wait --wait-timeout 180
       - name: Run acceptance tests
         env:
           TF_ACC: "1"
+          N8N_ENDPOINT: http://127.0.0.1:5678
+          N8N_API_KEY: tf-acc-fixture-key
         run: go test -v -cover ./internal/provider/ -timeout 20m
-      - name: Stop local n8n
+      - name: Stop fixture
         if: always()
-        run: docker compose -f docker-compose.dev.yml down -v
+        run: docker compose -f docker-compose.acc.yml down -v
 
   # Run gosec security scanner
   gosec:

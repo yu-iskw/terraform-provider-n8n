@@ -13,23 +13,8 @@ provider "n8n" {
   # endpoint and api_key from N8N_ENDPOINT / N8N_API_KEY
 }
 
-resource "n8n_workflow" "test" {
-  name   = "acceptance-example"
-  active = false
-
-  nodes = jsonencode([
-    {
-      id          = "manual"
-      name        = "When clicking 'Execute workflow'"
-      type        = "n8n-nodes-base.manualTrigger"
-      typeVersion = 1
-      position    = [0, 0]
-      parameters  = {}
-    }
-  ])
-
-  connections = jsonencode({})
-  settings    = jsonencode({})
+resource "n8n_project" "test" {
+  name = "acceptance-example"
 }
 `
 
@@ -45,14 +30,13 @@ func TestAccExample_basic(t *testing.T) {
 			{
 				Config: testAccExampleBasic,
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("n8n_workflow.test", "name", "acceptance-example"),
+					resource.TestCheckResourceAttr("n8n_project.test", "name", "acceptance-example"),
 				),
 			},
 			{
-				ResourceName:            "n8n_workflow.test",
-				ImportState:             true,
-				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"nodes", "connections", "settings"},
+				ResourceName:      "n8n_project.test",
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})

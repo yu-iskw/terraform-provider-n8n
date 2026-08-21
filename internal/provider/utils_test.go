@@ -17,6 +17,7 @@ package provider
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -45,17 +46,17 @@ func TestReadMarkdownDescriptionEmbedded(t *testing.T) {
 	}{
 		{
 			name:     "resource with internal/provider prefix",
-			filename: "internal/provider/docs/resources/workflow.md",
+			filename: "internal/provider/docs/resources/project.md",
 			wantErr:  false,
 		},
 		{
 			name:     "resource with docs prefix",
-			filename: "docs/resources/workflow.md",
+			filename: "docs/resources/project.md",
 			wantErr:  false,
 		},
 		{
 			name:     "data source",
-			filename: "internal/provider/docs/data_sources/workflow.md",
+			filename: "internal/provider/docs/data_sources/project.md",
 			wantErr:  false,
 		},
 		{
@@ -76,5 +77,18 @@ func TestReadMarkdownDescriptionEmbedded(t *testing.T) {
 				t.Errorf("readMarkdownDescription() returned empty content for %s", tt.filename)
 			}
 		})
+	}
+}
+
+func TestReadAccTestResource(t *testing.T) {
+	got, err := ReadAccTestResource([]string{"resources", "n8n_project", "010_create.tf"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, `resource "n8n_project"`) {
+		t.Fatalf("unexpected fixture: %s", got)
+	}
+	if _, err := ReadAccTestResource([]string{"..", "secret.tf"}); err == nil {
+		t.Fatal("expected path traversal to fail")
 	}
 }

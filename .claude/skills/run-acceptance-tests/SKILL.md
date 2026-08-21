@@ -11,17 +11,19 @@ Standardize running acceptance tests in this repository. Acceptance tests use `t
 
 ## Prerequisites
 
-Live-API tests need `N8N_ENDPOINT` and `N8N_API_KEY` (see `testAccPreCheck` in `internal/provider/provider_test.go`). Prefer the Docker path below so you do not need a hosted instance.
+Live-API tests need `N8N_ENDPOINT` and `N8N_API_KEY` (see `testAccPreCheck` in `internal/provider/provider_test.go`).
 
-### Option A: Local Docker (recommended)
+### Option A: Docker fixture (recommended)
 
-Requires Docker Compose v2, `curl`, and `python3`.
+Requires Docker Compose v2.
 
 - **Command**: `make testacc-docker`
-- **Details**: Starts [`docker-compose.dev.yml`](../../../docker-compose.dev.yml), runs [`scripts/bootstrap-n8n.sh`](../../../scripts/bootstrap-n8n.sh) to mint an API key, then `TF_ACC=1 go test ./internal/provider/...`.
-- Targeted: `make testacc-docker TESTARGS='-run ^TestAccN8nWorkflow_'`
+- **Details**: Builds [`docker-compose.acc.yml`](../../../docker-compose.acc.yml), a stand-in for GET/POST/PUT/DELETE `/api/v1/projects`, then `TF_ACC=1 go test ./internal/provider/...`. Covers CRUD, import, and `delete_protection`.
+- Targeted: `make testacc-docker TESTARGS='-run ^TestAccN8nProject_'`
 
-### Option B: External instance
+Community n8n from [`docker-compose.dev.yml`](../../../docker-compose.dev.yml) still 403s `feat:projectRole:admin`; project tests skip there.
+
+### Option B: External licensed instance
 
 - Copy `.env.template` to `.env`: `cp .env.template .env`
 - Set `N8N_ENDPOINT` and `N8N_API_KEY`, then `make testacc`.
@@ -36,7 +38,7 @@ Requires Docker Compose v2, `curl`, and `python3`.
 ### 2. Targeted acceptance tests
 
 - **Command**: `make testacc TESTARGS="-run <Pattern>"`
-- **Example**: `make testacc TESTARGS="-run ^TestAccN8nWorkflow_"`
+- **Example**: `make testacc TESTARGS="-run ^TestAccN8nProject_"`
 
 ## Distinction from unit tests
 

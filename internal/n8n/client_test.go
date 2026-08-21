@@ -56,7 +56,7 @@ func TestNewSetsAPIKeyHeader(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	req, err := http.NewRequest(http.MethodGet, client.Endpoint+"/workflows", nil)
+	req, err := http.NewRequest(http.MethodGet, client.Endpoint+"/projects", nil)
 	if err != nil {
 		t.Fatalf("NewRequest: %v", err)
 	}
