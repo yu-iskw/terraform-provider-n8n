@@ -19,7 +19,6 @@ import (
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -158,10 +157,6 @@ func (p *n8nProvider) DataSources(ctx context.Context) []func() datasource.DataS
 	return []func() datasource.DataSource{
 		NewWorkflowDataSource,
 	}
-}
-
-func (p *n8nProvider) Functions(ctx context.Context) []func() function.Function {
-	return []func() function.Function{}
 }
 
 func New(version string) func() provider.Provider {

@@ -65,17 +65,8 @@ func New(endpoint, apiKey string, opts *Options) (*Client, error) {
 			rps = opts.RPS
 		}
 	}
-	if maxC < 1 {
-		return nil, fmt.Errorf("max concurrent requests must be at least 1, got %d", maxC)
-	}
-	if rps <= 0 {
-		return nil, fmt.Errorf("requests per second must be greater than 0, got %v", rps)
-	}
 
 	burst := int(math.Ceil(rps))
-	if burst < 1 {
-		burst = 1
-	}
 	if burst > 100 {
 		burst = 100
 	}
@@ -149,8 +140,6 @@ func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	r2 := req.Clone(ctx)
-	if rt.apiKey != "" {
-		r2.Header.Set("X-N8N-API-KEY", rt.apiKey)
-	}
+	r2.Header.Set("X-N8N-API-KEY", rt.apiKey)
 	return rt.base.RoundTrip(r2)
 }

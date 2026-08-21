@@ -30,15 +30,12 @@ func (v jsonStringValidator) ValidateString(ctx context.Context, req validator.S
 		return
 	}
 	if !json.Valid([]byte(s)) {
-		resp.Diagnostics.AddAttributeError(req.Path, "Invalid JSON", fmt.Sprintf("value is not valid JSON: %q", truncate(s, 80)))
+		shown := s
+		if len(shown) > 80 {
+			shown = shown[:80] + "..."
+		}
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid JSON", fmt.Sprintf("value is not valid JSON: %q", shown))
 	}
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "..."
 }
 
 // jsonSemanticEqual reports whether two JSON strings are semantically equal
