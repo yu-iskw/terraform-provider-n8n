@@ -85,6 +85,7 @@ func (r *credentialResource) Schema(ctx context.Context, req resource.SchemaRequ
 			"data": schema.DynamicAttribute{
 				Required:            true,
 				WriteOnly:           true,
+				Sensitive:           true,
 				MarkdownDescription: "Credential payload for this type. Write-only; never stored in state. Change `data_version` to push an update.",
 			},
 			"data_version": schema.Int64Attribute{
@@ -99,7 +100,7 @@ func (r *credentialResource) Schema(ctx context.Context, req resource.SchemaRequ
 			},
 			"project_id": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: "Project that owns the credential. Omit to use the API key owner's personal project. Changing this transfers the credential.",
+				MarkdownDescription: "Project that owns the credential. Omit to use the API key owner's personal project. Changing a previously set value transfers the credential; setting it for the first time after import adopts without transfer.",
 			},
 			"is_resolvable": schema.BoolAttribute{
 				Optional:            true,
@@ -112,7 +113,7 @@ func (r *credentialResource) Schema(ctx context.Context, req resource.SchemaRequ
 			"is_global": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
-				MarkdownDescription: "Whether this credential is available globally. Applied on update. Community n8n returns 403 when set to true.",
+				MarkdownDescription: "Whether this credential is available globally. Applied after create via update. Community n8n returns 403 when set to true.",
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),
 				},
@@ -208,6 +209,18 @@ func (r *credentialResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
+	if wantGlobal := optionalBoolPointer(plan.IsGlobal); wantGlobal != nil && *wantGlobal != created.IsGlobal {
+		created, err = r.credentialController.Update(ctx, controllers.UpdateCredentialOptions{
+			ID:       created.ID,
+			Name:     created.Name,
+			IsGlobal: wantGlobal,
+		})
+		if err != nil {
+			resp.Diagnostics.AddError("Error setting credential is_global after create", err.Error())
+			return
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, credentialResourceModelFromAPI(created, plan))...)
 }
 
@@ -258,7 +271,7 @@ func (r *credentialResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	nameChanged := name != strings.TrimSpace(state.Name.ValueString())
-	projectChanged := optionalStringValue(optionalStringPointer(plan.ProjectID)).ValueString() != optionalStringValue(optionalStringPointer(state.ProjectID)).ValueString()
+	projectChanged := !optionalStringsEqual(plan.ProjectID, state.ProjectID)
 	resolvableChanged := !plan.IsResolvable.Equal(state.IsResolvable)
 	globalChanged := !plan.IsGlobal.Equal(state.IsGlobal)
 
@@ -270,6 +283,14 @@ func (r *credentialResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
+	var isResolvable, isGlobal *bool
+	if resolvableChanged {
+		isResolvable = optionalBoolPointer(plan.IsResolvable)
+	}
+	if globalChanged {
+		isGlobal = optionalBoolPointer(plan.IsGlobal)
+	}
+
 	updated, err := r.credentialController.Update(ctx, controllers.UpdateCredentialOptions{
 		ID:            plan.ID.ValueString(),
 		Name:          name,
@@ -278,8 +299,8 @@ func (r *credentialResource) Update(ctx context.Context, req resource.UpdateRequ
 		IsPartialData: plan.IsPartialData.ValueBool(),
 		ProjectID:     optionalStringPointer(plan.ProjectID),
 		PriorProject:  optionalStringPointer(state.ProjectID),
-		IsResolvable:  optionalBoolPointer(plan.IsResolvable),
-		IsGlobal:      optionalBoolPointer(plan.IsGlobal),
+		IsResolvable:  isResolvable,
+		IsGlobal:      isGlobal,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating credential", err.Error())

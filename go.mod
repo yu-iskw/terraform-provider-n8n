@@ -14,7 +14,7 @@
 
 module github.com/yu-iskw/terraform-provider-n8n
 
-go 1.25.11
+go 1.25.14
 
 require (
 	github.com/hashicorp/terraform-plugin-docs v0.25.0

@@ -153,7 +153,7 @@ func (c *FolderController) Delete(ctx context.Context, options DeleteFolderOptio
 		"deleteProtection": options.DeleteProtection,
 	})
 	if options.DeleteProtection {
-		return fmt.Errorf("cannot delete folder %s: delete protection is enabled", options.FolderID)
+		return errDeleteProtected("folder", options.FolderID)
 	}
 	if err := c.requireTeamProject(ctx, options.ProjectID); err != nil {
 		return err

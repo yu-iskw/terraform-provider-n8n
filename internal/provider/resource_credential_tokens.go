@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 )
@@ -35,6 +37,22 @@ func NewCredentialOpenAIAPIResource() resource.Resource {
 
 func NewCredentialJWTAuthResource() resource.Resource {
 	return newTypedCredentialResource(jwtAuthSpec())
+}
+
+func NewCredentialGitHubAPIResource() resource.Resource {
+	return newTypedCredentialResource(githubAPISpec())
+}
+
+func NewCredentialSendGridAPIResource() resource.Resource {
+	return newTypedCredentialResource(sendGridAPISpec())
+}
+
+func NewCredentialStripeAPIResource() resource.Resource {
+	return newTypedCredentialResource(stripeAPISpec())
+}
+
+func NewCredentialTwilioAPIResource() resource.Resource {
+	return newTypedCredentialResource(twilioAPISpec())
 }
 
 func slackAPISpec() typedCredentialSpec {
@@ -208,6 +226,107 @@ func jwtAuthSpec() typedCredentialSpec {
 			bagPutString(m, "privateKey", bag.strings["private_key"])
 			bagPutString(m, "publicKey", bag.strings["public_key"])
 			bagPutString(m, "algorithm", bag.strings["algorithm"])
+			return m, nil
+		},
+	}
+}
+
+func githubAPISpec() typedCredentialSpec {
+	return typedCredentialSpec{
+		TerraformSuffix: "credential_github_api",
+		N8nType:         "githubApi",
+		DocFile:         "internal/provider/docs/resources/credential_github_api.md",
+		ExtraAttributes: map[string]schema.Attribute{
+			"server":       stringState("GitHub API server. Defaults in n8n to `https://api.github.com`. Set this for GitHub Enterprise.", false),
+			"user":         stringState("GitHub username associated with the access token.", false),
+			"access_token": stringWriteOnly("GitHub personal access token. Write-only; never stored in state.", true),
+		},
+		BuildData: func(bag typedAttrBag) (map[string]any, error) {
+			m := map[string]any{}
+			if err := bagPutRequiredString(m, "accessToken", bag.strings["access_token"]); err != nil {
+				return nil, err
+			}
+			bagPutString(m, "server", bag.strings["server"])
+			bagPutString(m, "user", bag.strings["user"])
+			return m, nil
+		},
+	}
+}
+
+func sendGridAPISpec() typedCredentialSpec {
+	return typedCredentialSpec{
+		TerraformSuffix: "credential_send_grid_api",
+		N8nType:         "sendGridApi",
+		DocFile:         "internal/provider/docs/resources/credential_send_grid_api.md",
+		ExtraAttributes: map[string]schema.Attribute{
+			"api_key": stringWriteOnly("SendGrid API key. Write-only; never stored in state.", true),
+		},
+		BuildData: func(bag typedAttrBag) (map[string]any, error) {
+			m := map[string]any{}
+			if err := bagPutRequiredString(m, "apiKey", bag.strings["api_key"]); err != nil {
+				return nil, err
+			}
+			return m, nil
+		},
+	}
+}
+
+func stripeAPISpec() typedCredentialSpec {
+	return typedCredentialSpec{
+		TerraformSuffix: "credential_stripe_api",
+		N8nType:         "stripeApi",
+		DocFile:         "internal/provider/docs/resources/credential_stripe_api.md",
+		ExtraAttributes: map[string]schema.Attribute{
+			"secret_key":       stringWriteOnly("Stripe secret key (`sk_live_` or `sk_test_`). Write-only; never stored in state.", true),
+			"signature_secret": stringWriteOnly("Stripe webhook signing secret (`whsec_`). Write-only; never stored in state.", false),
+		},
+		BuildData: func(bag typedAttrBag) (map[string]any, error) {
+			m := map[string]any{}
+			if err := bagPutRequiredString(m, "secretKey", bag.strings["secret_key"]); err != nil {
+				return nil, err
+			}
+			bagPutString(m, "signatureSecret", bag.strings["signature_secret"])
+			return m, nil
+		},
+	}
+}
+
+func twilioAPISpec() typedCredentialSpec {
+	return typedCredentialSpec{
+		TerraformSuffix: "credential_twilio_api",
+		N8nType:         "twilioApi",
+		DocFile:         "internal/provider/docs/resources/credential_twilio_api.md",
+		ExtraAttributes: map[string]schema.Attribute{
+			"auth_type":      stringState("Auth type: `authToken` or `apiKey`.", true),
+			"account_sid":    stringState("Twilio Account SID.", true),
+			"auth_token":     stringWriteOnly("Twilio Auth Token used when auth_type is authToken. Write-only; never stored in state.", false),
+			"api_key_sid":    stringWriteOnly("Twilio API Key SID used when auth_type is apiKey. Write-only; never stored in state.", false),
+			"api_key_secret": stringWriteOnly("Twilio API Key Secret used when auth_type is apiKey. Write-only; never stored in state.", false),
+		},
+		BuildData: func(bag typedAttrBag) (map[string]any, error) {
+			m := map[string]any{}
+			if err := bagPutRequiredString(m, "authType", bag.strings["auth_type"]); err != nil {
+				return nil, err
+			}
+			if err := bagPutRequiredString(m, "accountSid", bag.strings["account_sid"]); err != nil {
+				return nil, err
+			}
+			authType := bag.strings["auth_type"].ValueString()
+			switch authType {
+			case "authToken":
+				if err := bagPutRequiredString(m, "authToken", bag.strings["auth_token"]); err != nil {
+					return nil, err
+				}
+			case "apiKey":
+				if err := bagPutRequiredString(m, "apiKeySid", bag.strings["api_key_sid"]); err != nil {
+					return nil, err
+				}
+				if err := bagPutRequiredString(m, "apiKeySecret", bag.strings["api_key_secret"]); err != nil {
+					return nil, err
+				}
+			default:
+				return nil, fmt.Errorf("authType must be authToken or apiKey")
+			}
 			return m, nil
 		},
 	}

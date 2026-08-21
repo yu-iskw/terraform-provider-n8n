@@ -45,10 +45,10 @@ resource "n8n_credential_google_api" "example" {
 - `delegated_email` (String) User email to impersonate when impersonate is true.
 - `http_node` (Boolean) When true, configure this credential for the HTTP Request node and send scopes.
 - `impersonate` (Boolean) When true, n8n impersonates delegated_email. Sent as n8n data key `inpersonate`.
-- `is_global` (Boolean) Whether this credential is available globally. Applied on update. Community n8n returns 403 when set to true.
+- `is_global` (Boolean) Whether this credential is available globally. Applied after create via update. Community n8n returns 403 when set to true.
 - `is_partial_data` (Boolean) When true, n8n merges payload fields into the stored secret object on update. When false, the payload replaces the entire object. OAuth types default to true so omitted oauth_token_data does not wipe UI-obtained tokens.
 - `is_resolvable` (Boolean) Whether this credential has resolvable fields.
-- `project_id` (String) Project that owns the credential. Omit to use the API key owner's personal project. Changing this transfers the credential.
+- `project_id` (String) Project that owns the credential. Omit to use the API key owner's personal project. Changing a previously set value transfers the credential; setting it for the first time after import adopts without transfer.
 - `region` (String) Google Cloud region or multi-region (for example `global`, `us`, `eu`). n8n defaults to `global` when omitted.
 - `scopes` (String) OAuth scopes used when http_node is true.
 

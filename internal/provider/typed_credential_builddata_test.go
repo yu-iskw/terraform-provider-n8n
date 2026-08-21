@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -20,6 +21,9 @@ func TestTypedCredentialMetadataCatalog(t *testing.T) {
 		{NewCredentialHubspotAppTokenResource(), "n8n_credential_hubspot_app_token"},
 		{NewCredentialSerpAPIResource(), "n8n_credential_serp_api"},
 		{NewCredentialOpenAIAPIResource(), "n8n_credential_open_ai_api"},
+		{NewCredentialAnthropicAPIResource(), "n8n_credential_anthropic_api"},
+		{NewCredentialAzureOpenAIAPIResource(), "n8n_credential_azure_open_ai_api"},
+		{NewCredentialOllamaAPIResource(), "n8n_credential_ollama_api"},
 		{NewCredentialJWTAuthResource(), "n8n_credential_jwt_auth"},
 		{NewCredentialGmailOAuth2Resource(), "n8n_credential_gmail_oauth2"},
 		{NewCredentialGoogleSheetsTriggerOAuth2APIResource(), "n8n_credential_google_sheets_trigger_oauth2_api"},
@@ -33,6 +37,15 @@ func TestTypedCredentialMetadataCatalog(t *testing.T) {
 		{NewCredentialSalesforceOAuth2APIResource(), "n8n_credential_salesforce_oauth2_api"},
 		{NewCredentialTwitterOAuth2APIResource(), "n8n_credential_twitter_oauth2_api"},
 		{NewCredentialMicrosoftGraphSecurityOAuth2APIResource(), "n8n_credential_microsoft_graph_security_oauth2_api"},
+		{NewCredentialGitHubAPIResource(), "n8n_credential_github_api"},
+		{NewCredentialSendGridAPIResource(), "n8n_credential_send_grid_api"},
+		{NewCredentialStripeAPIResource(), "n8n_credential_stripe_api"},
+		{NewCredentialTwilioAPIResource(), "n8n_credential_twilio_api"},
+		{NewCredentialSMTPResource(), "n8n_credential_smtp"},
+		{NewCredentialAWSResource(), "n8n_credential_aws"},
+		{NewCredentialGoogleSheetsOAuth2APIResource(), "n8n_credential_google_sheets_oauth2_api"},
+		{NewCredentialOAuth2APIResource(), "n8n_credential_oauth2_api"},
+		{NewCredentialHTTPMultipleHeadersAuthResource(), "n8n_credential_http_multiple_headers_auth"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.typeName, func(t *testing.T) {
@@ -120,6 +133,60 @@ func TestTokenBuildData(t *testing.T) {
 	if serp["apiKey"] != "serp" {
 		t.Fatalf("serp: %#v", serp)
 	}
+
+	ghAPI, err := githubAPISpec().BuildData(typedAttrBag{
+		strings: map[string]types.String{
+			"server":       types.StringValue("https://api.github.com"),
+			"user":         types.StringValue("octocat"),
+			"access_token": types.StringValue("ghp_x"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ghAPI["accessToken"] != "ghp_x" || ghAPI["user"] != "octocat" {
+		t.Fatalf("githubApi: %#v", ghAPI)
+	}
+
+	sg, err := sendGridAPISpec().BuildData(typedAttrBag{
+		strings: map[string]types.String{"api_key": types.StringValue("sg")},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sg["apiKey"] != "sg" {
+		t.Fatalf("sendgrid: %#v", sg)
+	}
+
+	stripe, err := stripeAPISpec().BuildData(typedAttrBag{
+		strings: map[string]types.String{
+			"secret_key":       types.StringValue("sk_test_x"),
+			"signature_secret": types.StringValue("whsec_x"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stripe["secretKey"] != "sk_test_x" || stripe["signatureSecret"] != "whsec_x" {
+		t.Fatalf("stripe: %#v", stripe)
+	}
+
+	twilio, err := twilioAPISpec().BuildData(typedAttrBag{
+		strings: map[string]types.String{
+			"auth_type":   types.StringValue("authToken"),
+			"account_sid": types.StringValue("ACxxx"),
+			"auth_token":  types.StringValue("tok"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if twilio["authType"] != "authToken" || twilio["authToken"] != "tok" {
+		t.Fatalf("twilio: %#v", twilio)
+	}
+	if _, ok := twilio["apiKeySid"]; ok {
+		t.Fatal("apiKeySid must be omitted for authToken branch")
+	}
 }
 
 func TestOpenAIAndJWTBuildData(t *testing.T) {
@@ -138,6 +205,50 @@ func TestOpenAIAndJWTBuildData(t *testing.T) {
 	}
 	if openAI["apiKey"] != "sk" || openAI["organizationId"] != "org" || openAI["headerName"] != "X-Custom" || openAI["header"] != true {
 		t.Fatalf("openai: %#v", openAI)
+	}
+
+	anthropic, err := anthropicAPISpec().BuildData(typedAttrBag{
+		strings: map[string]types.String{
+			"api_key":      types.StringValue("sk-ant"),
+			"url":          types.StringValue("https://api.anthropic.com"),
+			"header_name":  types.StringValue("X-Custom"),
+			"header_value": types.StringValue("hv"),
+		},
+		bools: map[string]types.Bool{"header": types.BoolValue(true)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if anthropic["apiKey"] != "sk-ant" || anthropic["url"] != "https://api.anthropic.com" || anthropic["headerName"] != "X-Custom" || anthropic["header"] != true {
+		t.Fatalf("anthropic: %#v", anthropic)
+	}
+
+	azure, err := azureOpenAiAPISpec().BuildData(typedAttrBag{
+		strings: map[string]types.String{
+			"api_key":       types.StringValue("az-key"),
+			"resource_name": types.StringValue("my-aoai"),
+			"api_version":   types.StringValue("2025-03-01-preview"),
+			"endpoint":      types.StringValue("https://westeurope.api.cognitive.microsoft.com"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if azure["apiKey"] != "az-key" || azure["resourceName"] != "my-aoai" || azure["apiVersion"] != "2025-03-01-preview" || azure["endpoint"] != "https://westeurope.api.cognitive.microsoft.com" {
+		t.Fatalf("azureOpenAi: %#v", azure)
+	}
+
+	ollama, err := ollamaAPISpec().BuildData(typedAttrBag{
+		strings: map[string]types.String{
+			"base_url": types.StringValue("http://127.0.0.1:11434"),
+			"api_key":  types.StringValue("proxy-token"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ollama["baseUrl"] != "http://127.0.0.1:11434" || ollama["apiKey"] != "proxy-token" {
+		t.Fatalf("ollama: %#v", ollama)
 	}
 
 	jwt, err := jwtAuthSpec().BuildData(typedAttrBag{
@@ -268,5 +379,94 @@ func TestOAuthBuildData(t *testing.T) {
 	}
 	if ms["clientCredentialType"] != "certificate" || ms["privateKey"] != "key" {
 		t.Fatalf("ms graph: %#v", ms)
+	}
+
+	smtp, err := smtpSpec().BuildData(typedAttrBag{
+		strings: map[string]types.String{
+			"user":     types.StringValue("a@b.com"),
+			"password": types.StringValue("pw"),
+			"host":     types.StringValue("smtp.example.com"),
+		},
+		int64s: map[string]types.Int64{"port": types.Int64Value(587)},
+		bools:  map[string]types.Bool{"secure": types.BoolValue(false)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if smtp["host"] != "smtp.example.com" || smtp["port"] != int64(587) || smtp["secure"] != false {
+		t.Fatalf("smtp: %#v", smtp)
+	}
+
+	aws, err := awsSpec().BuildData(typedAttrBag{
+		strings: map[string]types.String{
+			"region":            types.StringValue("us-east-1"),
+			"access_key_id":     types.StringValue("AKIAxxx"),
+			"secret_access_key": types.StringValue("secret"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if aws["region"] != "us-east-1" || aws["accessKeyId"] != "AKIAxxx" || aws["secretAccessKey"] != "secret" {
+		t.Fatalf("aws: %#v", aws)
+	}
+
+	oauth2, err := oAuth2APISpec().BuildData(typedAttrBag{
+		strings: map[string]types.String{
+			"grant_type":       types.StringValue("clientCredentials"),
+			"access_token_url": types.StringValue("https://example.com/token"),
+			"client_id":        types.StringValue("cid"),
+			"client_secret":    types.StringValue("csec"),
+			"authentication":   types.StringValue("header"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if oauth2["grantType"] != "clientCredentials" || oauth2["accessTokenUrl"] != "https://example.com/token" {
+		t.Fatalf("oAuth2Api: %#v", oauth2)
+	}
+
+	multi, err := httpMultipleHeadersAuthSpec().BuildData(typedAttrBag{
+		dynamics: map[string]types.Dynamic{
+			"headers": types.DynamicValue(types.ObjectValueMust(
+				map[string]attr.Type{
+					"values": types.ListType{ElemType: types.ObjectType{
+						AttrTypes: map[string]attr.Type{
+							"name":  types.StringType,
+							"value": types.StringType,
+						},
+					}},
+				},
+				map[string]attr.Value{
+					"values": types.ListValueMust(
+						types.ObjectType{AttrTypes: map[string]attr.Type{
+							"name":  types.StringType,
+							"value": types.StringType,
+						}},
+						[]attr.Value{
+							types.ObjectValueMust(
+								map[string]attr.Type{"name": types.StringType, "value": types.StringType},
+								map[string]attr.Value{
+									"name":  types.StringValue("X-Api-Key"),
+									"value": types.StringValue("secret"),
+								},
+							),
+						},
+					),
+				},
+			)),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	headers, ok := multi["headers"].(map[string]any)
+	if !ok {
+		t.Fatalf("headers type: %#v", multi["headers"])
+	}
+	values, ok := headers["values"].([]any)
+	if !ok || len(values) != 1 {
+		t.Fatalf("headers.values: %#v", headers)
 	}
 }

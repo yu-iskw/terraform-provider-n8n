@@ -2,6 +2,7 @@ package provider
 
 import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 )
 
 func NewCredentialMCPOAuth2APIResource() resource.Resource {
@@ -22,6 +23,10 @@ func NewCredentialTwitterOAuth2APIResource() resource.Resource {
 
 func NewCredentialMicrosoftGraphSecurityOAuth2APIResource() resource.Resource {
 	return newTypedCredentialResource(microsoftGraphSecurityOAuth2APISpec())
+}
+
+func NewCredentialOAuth2APIResource() resource.Resource {
+	return newTypedCredentialResource(oAuth2APISpec())
 }
 
 func mcpOAuth2APISpec() typedCredentialSpec {
@@ -53,7 +58,7 @@ func mcpOAuth2APISpec() typedCredentialSpec {
 			bagPutString(m, "clientSecret", bag.strings["client_secret"])
 			bagPutString(m, "scope", bag.strings["scope"])
 			bagPutBool(m, "ignoreSSLIssues", bag.bools["ignore_ssl_issues"])
-			token, ok, err := bagDynamicValue(bag.dynamics["oauth_token_data"])
+			token, ok, err := bagDynamicValue(bag.dynamics["oauth_token_data"], "oauth_token_data")
 			if err != nil {
 				return nil, err
 			}
@@ -144,6 +149,63 @@ func microsoftGraphSecurityOAuth2APISpec() typedCredentialSpec {
 			bagPutString(m, "authUrl", bag.strings["auth_url"])
 			bagPutString(m, "accessTokenUrl", bag.strings["access_token_url"])
 			bagPutString(m, "graphApiBaseUrl", bag.strings["graph_api_base_url"])
+			return m, nil
+		},
+	}
+}
+
+func oAuth2APISpec() typedCredentialSpec {
+	return typedCredentialSpec{
+		TerraformSuffix:     "credential_oauth2_api",
+		N8nType:             "oAuth2Api",
+		OAuthPartialDefault: true,
+		DocFile:             "internal/provider/docs/resources/credential_oauth2_api.md",
+		ExtraAttributes: map[string]schema.Attribute{
+			"grant_type":                      stringState("OAuth grant type: `authorizationCode`, `clientCredentials`, or `pkce`.", true),
+			"auth_url":                        stringState("Authorization URL used for authorizationCode and pkce grants.", false),
+			"access_token_url":                stringState("Access token URL.", true),
+			"client_id":                       stringState("OAuth client ID.", true),
+			"client_secret":                   stringWriteOnly("OAuth client secret. Write-only; never stored in state.", true),
+			"scope":                           stringState("OAuth scopes.", false),
+			"auth_query_parameters":           stringState("Extra authorization URI query parameters, for example `access_type=offline`.", false),
+			"authentication":                  stringState("How to send client credentials to the token endpoint: `header` or `body`.", false),
+			"send_additional_body_properties": boolState("When true with clientCredentials + body auth, send additional_body_properties."),
+			"additional_body_properties":      stringState("JSON object of extra body properties for clientCredentials body auth.", false),
+			"ignore_ssl_issues":               boolState("Whether to ignore TLS certificate issues when talking to the token endpoint."),
+			"token_expired_status_code":       int64State("HTTP status that marks an expired token. n8n defaults to 401.", false),
+			"oauth_token_data": dynamicWriteOnly(
+				"OAuth token payload (`oauthTokenData`), typically including access_token and refresh_token. Write-only. The Public API cannot complete a browser OAuth flow.",
+			),
+		},
+		BuildData: func(bag typedAttrBag) (map[string]any, error) {
+			m := map[string]any{}
+			if err := bagPutRequiredString(m, "grantType", bag.strings["grant_type"]); err != nil {
+				return nil, err
+			}
+			if err := bagPutRequiredString(m, "accessTokenUrl", bag.strings["access_token_url"]); err != nil {
+				return nil, err
+			}
+			if err := bagPutRequiredString(m, "clientId", bag.strings["client_id"]); err != nil {
+				return nil, err
+			}
+			if err := bagPutRequiredString(m, "clientSecret", bag.strings["client_secret"]); err != nil {
+				return nil, err
+			}
+			bagPutString(m, "authUrl", bag.strings["auth_url"])
+			bagPutString(m, "scope", bag.strings["scope"])
+			bagPutString(m, "authQueryParameters", bag.strings["auth_query_parameters"])
+			bagPutString(m, "authentication", bag.strings["authentication"])
+			bagPutBool(m, "sendAdditionalBodyProperties", bag.bools["send_additional_body_properties"])
+			bagPutString(m, "additionalBodyProperties", bag.strings["additional_body_properties"])
+			bagPutBool(m, "ignoreSSLIssues", bag.bools["ignore_ssl_issues"])
+			bagPutInt64(m, "tokenExpiredStatusCode", bag.int64s["token_expired_status_code"])
+			token, ok, err := bagDynamicValue(bag.dynamics["oauth_token_data"], "oauth_token_data")
+			if err != nil {
+				return nil, err
+			}
+			if ok {
+				m["oauthTokenData"] = token
+			}
 			return m, nil
 		},
 	}

@@ -162,6 +162,9 @@ func (p *n8nProvider) Resources(ctx context.Context) []func() resource.Resource 
 		NewCredentialHubspotAppTokenResource,
 		NewCredentialSerpAPIResource,
 		NewCredentialOpenAIAPIResource,
+		NewCredentialAnthropicAPIResource,
+		NewCredentialAzureOpenAIAPIResource,
+		NewCredentialOllamaAPIResource,
 		NewCredentialJWTAuthResource,
 		NewCredentialGmailOAuth2Resource,
 		NewCredentialGoogleSheetsTriggerOAuth2APIResource,
@@ -175,6 +178,15 @@ func (p *n8nProvider) Resources(ctx context.Context) []func() resource.Resource 
 		NewCredentialSalesforceOAuth2APIResource,
 		NewCredentialTwitterOAuth2APIResource,
 		NewCredentialMicrosoftGraphSecurityOAuth2APIResource,
+		NewCredentialGitHubAPIResource,
+		NewCredentialSendGridAPIResource,
+		NewCredentialStripeAPIResource,
+		NewCredentialTwilioAPIResource,
+		NewCredentialSMTPResource,
+		NewCredentialAWSResource,
+		NewCredentialGoogleSheetsOAuth2APIResource,
+		NewCredentialOAuth2APIResource,
+		NewCredentialHTTPMultipleHeadersAuthResource,
 	}
 }
 

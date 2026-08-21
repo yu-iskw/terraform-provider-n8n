@@ -10,7 +10,7 @@ services:
   n8n:
     image: docker.n8n.io/n8nio/n8n:2.35.5
     ports:
-      - "127.0.0.1:5678:5678"
+      - 127.0.0.1:5678:5678
     environment:
       N8N_PROTOCOL: http
       N8N_HOST: localhost
@@ -28,12 +28,10 @@ services:
       # Prefer /healthz/readiness (DB migrated). Probe with Node — official
       # image has no curl/wget HEALTHCHECK and wget has been dropped in some tags.
       test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:5678/healthz/readiness').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
-        ]
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:5678/healthz/readiness').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
       interval: 5s
       timeout: 5s
       retries: 30

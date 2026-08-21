@@ -33,8 +33,16 @@ func NewCredentialGooglePalmAPIResource() resource.Resource {
 	return newTypedCredentialResource(googlePalmAPISpec())
 }
 
+func NewCredentialGoogleSheetsOAuth2APIResource() resource.Resource {
+	return newTypedCredentialResource(googleSheetsOAuth2APISpec())
+}
+
 func gmailOAuth2Spec() typedCredentialSpec {
 	return googleOAuth2Spec("credential_gmail_oauth2", "gmailOAuth2", "internal/provider/docs/resources/credential_gmail_oauth2.md")
+}
+
+func googleSheetsOAuth2APISpec() typedCredentialSpec {
+	return googleOAuth2Spec("credential_google_sheets_oauth2_api", "googleSheetsOAuth2Api", "internal/provider/docs/resources/credential_google_sheets_oauth2_api.md")
 }
 
 func googleSheetsTriggerOAuth2APISpec() typedCredentialSpec {

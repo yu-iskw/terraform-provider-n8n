@@ -125,7 +125,7 @@ func (c *ProjectController) Delete(ctx context.Context, options DeleteProjectOpt
 		"deleteProtection": options.DeleteProtection,
 	})
 	if options.DeleteProtection {
-		return fmt.Errorf("cannot delete project %s: delete protection is enabled", options.ID)
+		return errDeleteProtected("project", options.ID)
 	}
 	got, err := c.projects.GetByID(ctx, options.ID)
 	if err != nil {

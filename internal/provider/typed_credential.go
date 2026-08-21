@@ -73,7 +73,7 @@ func newTypedCredentialResource(spec typedCredentialSpec) resource.Resource {
 	for name, attrSchema := range spec.ExtraAttributes {
 		kind, writeOnly, ok := classifyTypedAttribute(attrSchema)
 		if !ok {
-			continue
+			panic(fmt.Sprintf("typed credential %q: unsupported schema type for attribute %q", spec.TerraformSuffix, name))
 		}
 		r.kinds[name] = kind
 		if writeOnly {
@@ -169,7 +169,7 @@ func typedCredentialEnvelopeAttributes(n8nType string, oauthPartialDefault bool)
 		},
 		"project_id": schema.StringAttribute{
 			Optional:            true,
-			MarkdownDescription: "Project that owns the credential. Omit to use the API key owner's personal project. Changing this transfers the credential.",
+			MarkdownDescription: "Project that owns the credential. Omit to use the API key owner's personal project. Changing a previously set value transfers the credential; setting it for the first time after import adopts without transfer.",
 		},
 		"is_resolvable": schema.BoolAttribute{
 			Optional:            true,
@@ -182,7 +182,7 @@ func typedCredentialEnvelopeAttributes(n8nType string, oauthPartialDefault bool)
 		"is_global": schema.BoolAttribute{
 			Optional:            true,
 			Computed:            true,
-			MarkdownDescription: "Whether this credential is available globally. Applied on update. Community n8n returns 403 when set to true.",
+			MarkdownDescription: "Whether this credential is available globally. Applied after create via update. Community n8n returns 403 when set to true.",
 			PlanModifiers: []planmodifier.Bool{
 				boolplanmodifier.UseStateForUnknown(),
 			},
@@ -248,6 +248,8 @@ func (r *typedCredentialResource) Create(ctx context.Context, req resource.Creat
 	resp.Diagnostics.Append(diags...)
 	isResolvable, diags := readBoolAttr(ctx, req.Plan, "is_resolvable")
 	resp.Diagnostics.Append(diags...)
+	isGlobal, diags := readBoolAttr(ctx, req.Plan, "is_global")
+	resp.Diagnostics.Append(diags...)
 	dataVersion, diags := readInt64Attr(ctx, req.Plan, "data_version")
 	resp.Diagnostics.Append(diags...)
 	isPartialData, diags := readBoolAttr(ctx, req.Plan, "is_partial_data")
@@ -281,6 +283,18 @@ func (r *typedCredentialResource) Create(ctx context.Context, req resource.Creat
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating credential", err.Error())
 		return
+	}
+
+	if wantGlobal := optionalBoolPointer(isGlobal); wantGlobal != nil && *wantGlobal != created.IsGlobal {
+		created, err = r.credentialController.Update(ctx, controllers.UpdateCredentialOptions{
+			ID:       created.ID,
+			Name:     created.Name,
+			IsGlobal: wantGlobal,
+		})
+		if err != nil {
+			resp.Diagnostics.AddError("Error setting credential is_global after create", err.Error())
+			return
+		}
 	}
 
 	resp.Diagnostics.Append(r.writeState(ctx, &resp.State, created, typedStatePersist{
@@ -385,24 +399,29 @@ func (r *typedCredentialResource) Update(ctx context.Context, req resource.Updat
 	}
 
 	nameChanged := trimmed != strings.TrimSpace(stateName.ValueString())
-	projectChanged := optionalStringValue(optionalStringPointer(planProject)).ValueString() != optionalStringValue(optionalStringPointer(stateProject)).ValueString()
+	projectChanged := !optionalStringsEqual(planProject, stateProject)
 	resolvableChanged := !planResolvable.Equal(stateResolvable)
 	globalChanged := !planGlobal.Equal(stateGlobal)
 
 	if !nameChanged && !sendData && !projectChanged && !resolvableChanged && !globalChanged {
-		fromState, diags := r.credentialFromState(ctx, req.State)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
+		diags := diag.Diagnostics{}
+		diags.Append(resp.State.SetAttribute(ctx, path.Root("data_version"), planVersion)...)
+		diags.Append(resp.State.SetAttribute(ctx, path.Root("is_partial_data"), isPartialData)...)
+		diags.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), planProject)...)
+		diags.Append(resp.State.SetAttribute(ctx, path.Root("delete_protection"), deleteProtection)...)
+		for _, key := range r.stateKeys {
+			diags.Append(setBagAttr(ctx, &resp.State, key, r.kinds[key], planBag)...)
 		}
-		resp.Diagnostics.Append(r.writeState(ctx, &resp.State, fromState, typedStatePersist{
-			DataVersion:      planVersion,
-			IsPartialData:    isPartialData,
-			ProjectID:        planProject,
-			DeleteProtection: deleteProtection,
-			Bag:              planBag,
-		})...)
+		resp.Diagnostics.Append(diags...)
 		return
+	}
+
+	var isResolvable, isGlobal *bool
+	if resolvableChanged {
+		isResolvable = optionalBoolPointer(planResolvable)
+	}
+	if globalChanged {
+		isGlobal = optionalBoolPointer(planGlobal)
 	}
 
 	updated, err := r.credentialController.Update(ctx, controllers.UpdateCredentialOptions{
@@ -413,8 +432,8 @@ func (r *typedCredentialResource) Update(ctx context.Context, req resource.Updat
 		IsPartialData: isPartialData.ValueBool(),
 		ProjectID:     optionalStringPointer(planProject),
 		PriorProject:  optionalStringPointer(stateProject),
-		IsResolvable:  optionalBoolPointer(planResolvable),
-		IsGlobal:      optionalBoolPointer(planGlobal),
+		IsResolvable:  isResolvable,
+		IsGlobal:      isGlobal,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating credential", err.Error())
@@ -556,17 +575,11 @@ func setNullSecret(ctx context.Context, state *tfsdk.State, key string, kind typ
 
 func (r *typedCredentialResource) collectBag(ctx context.Context, config, plan attributeReader) (typedAttrBag, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	bag := newTypedAttrBag()
-	for _, key := range r.secretKeys {
-		part, partDiags := r.readBag(ctx, config, []string{key})
-		diags.Append(partDiags...)
-		mergeTypedAttrBag(&bag, part)
-	}
-	for _, key := range r.stateKeys {
-		part, partDiags := r.readBag(ctx, plan, []string{key})
-		diags.Append(partDiags...)
-		mergeTypedAttrBag(&bag, part)
-	}
+	bag, secretDiags := r.readBag(ctx, config, r.secretKeys)
+	diags.Append(secretDiags...)
+	stateBag, stateDiags := r.readBag(ctx, plan, r.stateKeys)
+	diags.Append(stateDiags...)
+	mergeTypedAttrBag(&bag, stateBag)
 	return bag, diags
 }
 
@@ -648,49 +661,6 @@ func stateKeysEqual(keys []string, kinds map[string]typedAttrKind, plan, state t
 	return true
 }
 
-func (r *typedCredentialResource) credentialFromState(ctx context.Context, src attributeReader) (*models.Credential, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	id, d := readStringAttr(ctx, src, "id")
-	diags.Append(d...)
-	name, d := readStringAttr(ctx, src, "name")
-	diags.Append(d...)
-	typ, d := readStringAttr(ctx, src, "type")
-	diags.Append(d...)
-	isResolvable, d := readBoolAttr(ctx, src, "is_resolvable")
-	diags.Append(d...)
-	isGlobal, d := readBoolAttr(ctx, src, "is_global")
-	diags.Append(d...)
-	isManaged, d := readBoolAttr(ctx, src, "is_managed")
-	diags.Append(d...)
-	allowFallback, d := readBoolAttr(ctx, src, "resolvable_allow_fallback")
-	diags.Append(d...)
-	resolverID, d := readStringAttr(ctx, src, "resolver_id")
-	diags.Append(d...)
-	createdAt, d := readStringAttr(ctx, src, "created_at")
-	diags.Append(d...)
-	updatedAt, d := readStringAttr(ctx, src, "updated_at")
-	diags.Append(d...)
-	if diags.HasError() {
-		return nil, diags
-	}
-	c := &models.Credential{
-		ID:                      id.ValueString(),
-		Name:                    name.ValueString(),
-		Type:                    typ.ValueString(),
-		IsResolvable:            isResolvable.ValueBool(),
-		IsGlobal:                isGlobal.ValueBool(),
-		IsManaged:               isManaged.ValueBool(),
-		ResolvableAllowFallback: allowFallback.ValueBool(),
-		CreatedAt:               createdAt.ValueString(),
-		UpdatedAt:               updatedAt.ValueString(),
-	}
-	if !resolverID.IsNull() && !resolverID.IsUnknown() && strings.TrimSpace(resolverID.ValueString()) != "" {
-		s := resolverID.ValueString()
-		c.ResolverID = &s
-	}
-	return c, diags
-}
-
 func readStringAttr(ctx context.Context, src attributeReader, name string) (types.String, diag.Diagnostics) {
 	var v types.String
 	return v, src.GetAttribute(ctx, path.Root(name), &v)
@@ -740,7 +710,7 @@ func bagPutRequiredString(m map[string]any, apiKey string, v types.String) error
 	return nil
 }
 
-func bagDynamicValue(v types.Dynamic) (any, bool, error) {
+func bagDynamicValue(v types.Dynamic, attrName string) (any, bool, error) {
 	if v.IsNull() || v.IsUnknown() {
 		return nil, false, nil
 	}
@@ -758,7 +728,7 @@ func bagDynamicValue(v types.Dynamic) (any, bool, error) {
 		}
 		var decoded any
 		if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
-			return nil, false, fmt.Errorf("oauth_token_data must be a JSON object: %w", err)
+			return nil, false, fmt.Errorf("%s must be a JSON object: %w", attrName, err)
 		}
 		return decoded, true, nil
 	}
@@ -786,6 +756,14 @@ func stringState(desc string, required bool) schema.StringAttribute {
 func boolState(desc string) schema.BoolAttribute {
 	return schema.BoolAttribute{
 		Optional:            true,
+		MarkdownDescription: desc,
+	}
+}
+
+func int64State(desc string, required bool) schema.Int64Attribute {
+	return schema.Int64Attribute{
+		Required:            required,
+		Optional:            !required,
 		MarkdownDescription: desc,
 	}
 }
@@ -838,7 +816,7 @@ func oauthBuildData(bag typedAttrBag, withCustomScopes bool, requireClientSecret
 		bagPutBool(m, "customScopes", bag.bools["custom_scopes"])
 		bagPutString(m, "enabledScopes", bag.strings["enabled_scopes"])
 	}
-	token, ok, err := bagDynamicValue(bag.dynamics["oauth_token_data"])
+	token, ok, err := bagDynamicValue(bag.dynamics["oauth_token_data"], "oauth_token_data")
 	if err != nil {
 		return nil, err
 	}

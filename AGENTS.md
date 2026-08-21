@@ -4,7 +4,7 @@ Shared guidance for agents working in this repository.
 
 ## Overview
 
-Terraform provider for [n8n](https://n8n.io/), written in Go with the HashiCorp Terraform Plugin Framework. It talks to the n8n Public API and currently manages **team projects** (`n8n_project`), **project folders** (`n8n_folder` resource, `n8n_folder` / `n8n_folders` data sources), and **credentials** (generic `n8n_credential` plus typed resources such as `n8n_credential_http_header_auth` and `n8n_credential_slack_api`; data sources `n8n_credential` / `n8n_credentials` / `n8n_credential_schema`). It does not manage workflows. MCP Authentication is a node option, not a credential type.
+Terraform provider for [n8n](https://n8n.io/), written in Go with the HashiCorp Terraform Plugin Framework. It talks to the n8n Public API and currently manages **team projects** (`n8n_project`), **project folders** (`n8n_folder` resource, `n8n_folder` / `n8n_folders` data sources), and **credentials** (generic `n8n_credential` plus typed resources such as `n8n_credential_http_header_auth`, `n8n_credential_slack_api`, `n8n_credential_aws`, `n8n_credential_github_api`, `n8n_credential_open_ai_api`, and `n8n_credential_anthropic_api`; data sources `n8n_credential` / `n8n_credentials` / `n8n_credential_schema`). It does not manage workflows. MCP Authentication is a node option, not a credential type. Nearby type gotchas: `githubApi` vs `githubOAuth2Api`, `googleSheetsOAuth2Api` vs `googleSheetsTriggerOAuth2Api`, `aws` vs `awsAssumeRole`, `oAuth2Api` (lowercase leading `o`), `openAiApi` vs `azureOpenAiApi`, and Azure Entra Cognitive Services OAuth2 as a separate type from `azureOpenAiApi`. Ollama credentials are primarily identified by `base_url` (optional proxy `api_key`).
 
 ## mise (optional)
 

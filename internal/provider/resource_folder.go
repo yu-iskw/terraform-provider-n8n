@@ -89,7 +89,7 @@ func (r *folderResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			},
 			"transfer_to_folder_id": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: "When destroying, n8n query `transferToFolderId` that receives workflows and child folders. If omitted, workflows are moved to the project root and archived, and child folders are deleted. This value is Terraform-only.",
+				MarkdownDescription: "When destroying, n8n query `transferToFolderId` that receives workflows and child folders. If omitted, workflows are moved to the project root and archived, and child folders are deleted. This value is Terraform-only. Apply the value in a prior apply before destroy; a same-apply set-and-destroy uses the previous state value.",
 			},
 		},
 	}

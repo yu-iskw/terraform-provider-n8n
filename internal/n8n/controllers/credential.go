@@ -144,10 +144,12 @@ func (c *CredentialController) Update(ctx context.Context, options UpdateCredent
 	if prior != nil && next == nil {
 		return nil, fmt.Errorf("cannot clear project_id on credential %s; transfer to personal is unsupported", options.ID)
 	}
+	transferred := false
 	if projectIDChanged(prior, next) {
 		if err := c.credentials.Transfer(ctx, options.ID, *next); err != nil {
 			return nil, err
 		}
+		transferred = true
 	}
 
 	in := models.CredentialUpdate{Name: &name, IsResolvable: options.IsResolvable, IsGlobal: options.IsGlobal}
@@ -157,7 +159,14 @@ func (c *CredentialController) Update(ctx context.Context, options UpdateCredent
 		partial := options.IsPartialData
 		in.IsPartialData = &partial
 	}
-	return c.credentials.Update(ctx, options.ID, in)
+	updated, err := c.credentials.Update(ctx, options.ID, in)
+	if err != nil {
+		if transferred {
+			return nil, fmt.Errorf("credential %s was transferred to project %s, but the follow-up update failed: %w", options.ID, *next, err)
+		}
+		return nil, err
+	}
+	return updated, nil
 }
 
 // Delete removes a credential. Missing credentials are treated as already gone.
@@ -167,7 +176,7 @@ func (c *CredentialController) Delete(ctx context.Context, options DeleteCredent
 		"deleteProtection": options.DeleteProtection,
 	})
 	if options.DeleteProtection {
-		return fmt.Errorf("cannot delete credential %s: delete protection is enabled", options.ID)
+		return errDeleteProtected("credential", options.ID)
 	}
 	got, err := c.credentials.Get(ctx, options.ID)
 	if err != nil {
@@ -209,12 +218,13 @@ func trimOptionalString(v *string) *string {
 	return &s
 }
 
+// projectIDChanged reports whether ownership should move via Transfer.
+// A nil prior means ownership is unknown (import or never set in Terraform);
+// adopting a project_id into state must not Transfer to a project the credential
+// may already belong to.
 func projectIDChanged(prior, next *string) bool {
-	if next == nil {
+	if prior == nil || next == nil {
 		return false
-	}
-	if prior == nil {
-		return true
 	}
 	return *prior != *next
 }

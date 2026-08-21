@@ -42,11 +42,11 @@ resource "n8n_credential_open_ai_api" "example" {
 - `header` (Boolean) When true, send the custom header_name and header_value.
 - `header_name` (String) Custom header name used when header is true.
 - `header_value` (String, Sensitive) Custom header value used when header is true. Write-only; never stored in state.
-- `is_global` (Boolean) Whether this credential is available globally. Applied on update. Community n8n returns 403 when set to true.
+- `is_global` (Boolean) Whether this credential is available globally. Applied after create via update. Community n8n returns 403 when set to true.
 - `is_partial_data` (Boolean) When true, n8n merges payload fields into the stored secret object on update. When false, the payload replaces the entire object. OAuth types default to true so omitted oauth_token_data does not wipe UI-obtained tokens.
 - `is_resolvable` (Boolean) Whether this credential has resolvable fields.
 - `organization_id` (String) OpenAI organization id. Required only if you belong to multiple organizations.
-- `project_id` (String) Project that owns the credential. Omit to use the API key owner's personal project. Changing this transfers the credential.
+- `project_id` (String) Project that owns the credential. Omit to use the API key owner's personal project. Changing a previously set value transfers the credential; setting it for the first time after import adopts without transfer.
 - `url` (String) OpenAI API base URL. Defaults in n8n to `https://api.openai.com/v1` when omitted.
 
 ### Read-Only

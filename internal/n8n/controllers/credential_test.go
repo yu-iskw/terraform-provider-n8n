@@ -141,15 +141,53 @@ func TestCredentialControllerUpdateTransfersThenPatches(t *testing.T) {
 		t.Fatal(err)
 	}
 	next := "proj-2"
+	prior := "proj-1"
 	got, err := NewCredentialController(client).Update(context.Background(), UpdateCredentialOptions{
-		ID:        "cred-1",
-		Name:      "Renamed",
-		ProjectID: &next,
+		ID:           "cred-1",
+		Name:         "Renamed",
+		ProjectID:    &next,
+		PriorProject: &prior,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if transferredTo != "proj-2" || !patched || got.Name != "Renamed" {
 		t.Fatalf("transfer=%q patched=%v got=%+v", transferredTo, patched, got)
+	}
+}
+
+func TestCredentialControllerUpdateAdoptsProjectWithoutTransfer(t *testing.T) {
+	var transferred bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/credentials/cred-1":
+			_ = json.NewEncoder(w).Encode(models.Credential{ID: "cred-1", Name: "Header", Type: "httpHeaderAuth"})
+		case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/transfer"):
+			transferred = true
+			w.WriteHeader(http.StatusOK)
+		case r.Method == http.MethodPatch && r.URL.Path == "/api/v1/credentials/cred-1":
+			_ = json.NewEncoder(w).Encode(models.Credential{ID: "cred-1", Name: "Header", Type: "httpHeaderAuth"})
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := n8n.New(srv.URL, "secret", &n8n.Options{RPS: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := "proj-1"
+	if _, err := NewCredentialController(client).Update(context.Background(), UpdateCredentialOptions{
+		ID:        "cred-1",
+		Name:      "Header",
+		ProjectID: &next,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if transferred {
+		t.Fatal("nil prior project_id must adopt without Transfer")
 	}
 }

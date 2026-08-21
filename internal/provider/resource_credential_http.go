@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 )
@@ -15,6 +17,10 @@ func NewCredentialHTTPBasicAuthResource() resource.Resource {
 
 func NewCredentialHTTPBearerAuthResource() resource.Resource {
 	return newTypedCredentialResource(httpBearerAuthSpec())
+}
+
+func NewCredentialHTTPMultipleHeadersAuthResource() resource.Resource {
+	return newTypedCredentialResource(httpMultipleHeadersAuthSpec())
 }
 
 func httpHeaderAuthSpec() typedCredentialSpec {
@@ -74,6 +80,34 @@ func httpBearerAuthSpec() typedCredentialSpec {
 			if err := bagPutRequiredString(m, "token", bag.strings["token"]); err != nil {
 				return nil, err
 			}
+			return m, nil
+		},
+	}
+}
+
+func httpMultipleHeadersAuthSpec() typedCredentialSpec {
+	return typedCredentialSpec{
+		TerraformSuffix: "credential_http_multiple_headers_auth",
+		N8nType:         "httpMultipleHeadersAuth",
+		DocFile:         "internal/provider/docs/resources/credential_http_multiple_headers_auth.md",
+		ExtraAttributes: map[string]schema.Attribute{
+			"headers": schema.DynamicAttribute{
+				Required:            true,
+				WriteOnly:           true,
+				Sensitive:           true,
+				MarkdownDescription: "Header collection matching n8n `headers` (`{ values = [{ name, value }] }`). Write-only; never stored in state.",
+			},
+		},
+		BuildData: func(bag typedAttrBag) (map[string]any, error) {
+			m := map[string]any{}
+			headers, ok, err := bagDynamicValue(bag.dynamics["headers"], "headers")
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, fmt.Errorf("headers is required")
+			}
+			m["headers"] = headers
 			return m, nil
 		},
 	}

@@ -8,10 +8,10 @@ description: |-
   type is the n8n credential type name for this instance (for example httpHeaderAuth or githubApi). There is no Public API catalog of types; use the n8n_credential_schema data source to inspect the payload keys for a type. Changing type replaces the resource.
   data is write-only and is never stored in Terraform state. n8n GET and list responses omit secrets. On create, the provider always sends data. On update, it sends data only when data_version changes. Pair data with a secrets manager or Terraform ephemeral values. Terraform 1.11 or later is required for write-only attributes.
   OAuth credential types still need tokens you obtained outside Terraform; the Public API cannot complete a browser OAuth flow.
-  project_id is optional. If omitted, n8n creates the credential in the API key owner's personal project. Changing project_id transfers the credential (credential:move). Clearing project_id after create is not supported. Transfer needs a real team project id (the path alias personal is not accepted).
-  is_global is applied on update only. Community n8n returns HTTP 403 (You are not licensed for sharing credentials) if you set it to true.
+  project_id is optional. If omitted, n8n creates the credential in the API key owner's personal project. Changing project_id after it was already set in state transfers the credential (credential:move). Setting project_id for the first time after import (when state had no project) adopts the value without transferring—GET does not return ownership, so Terraform cannot detect the real project. Clearing project_id after create is not supported. Transfer needs a real team project id (the path alias personal is not accepted).
+  is_global is not part of create; when set in config the provider applies it with a follow-up update after create. Community n8n returns HTTP 403 (You are not licensed for sharing credentials) if you set it to true.
   delete_protection is required. When set to true, Terraform will not destroy the resource. This flag is Terraform-only; n8n has no matching API field. Imported resources default to delete_protection = true. After import you must set data and data_version in configuration; import cannot recover secrets. Use the same data_version as state (import sets 1) until you intend to rotate.
-  Managed credentials (is_managed) cannot be updated or deleted via the API.
+  Managed credentials (is_managed) cannot be updated or deleted via the API. Prefer not to import managed credentials.
 ---
 
 # n8n_credential (Resource)
@@ -26,13 +26,13 @@ Prefer a typed resource when one exists for the credential type (for example `n8
 
 OAuth credential types still need tokens you obtained outside Terraform; the Public API cannot complete a browser OAuth flow.
 
-`project_id` is optional. If omitted, n8n creates the credential in the API key owner's personal project. Changing `project_id` transfers the credential (`credential:move`). Clearing `project_id` after create is not supported. Transfer needs a real team project id (the path alias `personal` is not accepted).
+`project_id` is optional. If omitted, n8n creates the credential in the API key owner's personal project. Changing `project_id` after it was already set in state transfers the credential (`credential:move`). Setting `project_id` for the first time after import (when state had no project) adopts the value without transferring—GET does not return ownership, so Terraform cannot detect the real project. Clearing `project_id` after create is not supported. Transfer needs a real team project id (the path alias `personal` is not accepted).
 
-`is_global` is applied on update only. Community n8n returns HTTP 403 (`You are not licensed for sharing credentials`) if you set it to true.
+`is_global` is not part of create; when set in config the provider applies it with a follow-up update after create. Community n8n returns HTTP 403 (`You are not licensed for sharing credentials`) if you set it to true.
 
 `delete_protection` is required. When set to `true`, Terraform will not destroy the resource. This flag is Terraform-only; n8n has no matching API field. Imported resources default to `delete_protection = true`. After import you must set `data` and `data_version` in configuration; import cannot recover secrets. Use the same `data_version` as state (import sets `1`) until you intend to rotate.
 
-Managed credentials (`is_managed`) cannot be updated or deleted via the API.
+Managed credentials (`is_managed`) cannot be updated or deleted via the API. Prefer not to import managed credentials.
 
 ## Example Usage
 
@@ -54,7 +54,7 @@ resource "n8n_credential" "example" {
 
 ### Required
 
-- `data` (Dynamic) Credential payload for this type. Write-only; never stored in state. Change `data_version` to push an update.
+- `data` (Dynamic, Sensitive) Credential payload for this type. Write-only; never stored in state. Change `data_version` to push an update.
 - `data_version` (Number) Keeper for write-only `data`. Create always sends `data`. Update sends `data` only when this value changes.
 - `delete_protection` (Boolean) When set to `true`, prevents Terraform from destroying this credential. This flag is Terraform-only; n8n has no matching API field. Imported resources default to `true`.
 - `name` (String) Credential name.
@@ -62,10 +62,10 @@ resource "n8n_credential" "example" {
 
 ### Optional
 
-- `is_global` (Boolean) Whether this credential is available globally. Applied on update. Community n8n returns 403 when set to true.
+- `is_global` (Boolean) Whether this credential is available globally. Applied after create via update. Community n8n returns 403 when set to true.
 - `is_partial_data` (Boolean) When true, n8n merges `data` into the stored secret object on update. When false, `data` replaces the entire object. Sent only when `data_version` changes.
 - `is_resolvable` (Boolean) Whether this credential has resolvable fields.
-- `project_id` (String) Project that owns the credential. Omit to use the API key owner's personal project. Changing this transfers the credential.
+- `project_id` (String) Project that owns the credential. Omit to use the API key owner's personal project. Changing a previously set value transfers the credential; setting it for the first time after import adopts without transfer.
 
 ### Read-Only
 

@@ -153,6 +153,32 @@ func typedCredentialAccCases() []typedCredentialAccCase {
 		{spec: serpAPISpec()},
 		{spec: openAIAPISpec()},
 		{
+			spec: anthropicAPISpec(),
+			updateAttrs: map[string]string{
+				"url": "https://api.anthropic.com",
+			},
+		},
+		{
+			spec: azureOpenAiAPISpec(),
+			createAttrs: map[string]string{
+				"resource_name": "tf-acc-aoai",
+				"api_version":   "2025-03-01-preview",
+			},
+			updateAttrs: map[string]string{
+				"resource_name": "tf-acc-aoai-2",
+				"api_version":   "2024-10-21",
+			},
+		},
+		{
+			spec: ollamaAPISpec(),
+			createAttrs: map[string]string{
+				"base_url": "http://127.0.0.1:11434",
+			},
+			updateAttrs: map[string]string{
+				"base_url": "http://ollama.example.com:11434",
+			},
+		},
+		{
 			spec: jwtAuthSpec(),
 			createAttrs: map[string]string{
 				"key_type":  "passphrase",
@@ -201,6 +227,71 @@ func typedCredentialAccCases() []typedCredentialAccCase {
 				"server_url":                      "https://mcp-updated.example.com",
 			},
 		},
+		{
+			spec: githubAPISpec(),
+			createAttrs: map[string]string{
+				"user": "octocat",
+			},
+			updateAttrs: map[string]string{
+				"user": "octocat-2",
+			},
+		},
+		{spec: sendGridAPISpec()},
+		{spec: stripeAPISpec()},
+		{
+			spec: twilioAPISpec(),
+			createAttrs: map[string]string{
+				"auth_type":   "authToken",
+				"account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+			},
+			updateAttrs: map[string]string{
+				"auth_type":   "authToken",
+				"account_sid": "ACyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+			},
+		},
+		{
+			spec: smtpSpec(),
+			createAttrs: map[string]string{
+				"user":   "alerts@example.com",
+				"host":   "smtp.example.com",
+				"port":   "465",
+				"secure": "true",
+			},
+			updateAttrs: map[string]string{
+				"user":   "ops@example.com",
+				"host":   "smtp-updated.example.com",
+				"port":   "587",
+				"secure": "false",
+			},
+		},
+		{
+			spec: awsSpec(),
+			createAttrs: map[string]string{
+				"region":        "us-east-1",
+				"access_key_id": "AKIAxxxxxxxx",
+			},
+			updateAttrs: map[string]string{
+				"region":        "eu-west-1",
+				"access_key_id": "AKIAyyyyyyyy",
+			},
+		},
+		{spec: googleSheetsOAuth2APISpec(), createAttrs: oauthClientCreate, updateAttrs: oauthClientUpdate},
+		{
+			spec: oAuth2APISpec(),
+			createAttrs: map[string]string{
+				"grant_type":       "clientCredentials",
+				"access_token_url": "https://example.com/oauth/token",
+				"client_id":        "placeholder",
+				"authentication":   "header",
+			},
+			updateAttrs: map[string]string{
+				"grant_type":       "clientCredentials",
+				"access_token_url": "https://example.com/oauth/token-v2",
+				"client_id":        "placeholder-2",
+				"authentication":   "body",
+			},
+		},
+		{spec: httpMultipleHeadersAuthSpec()},
 	}
 }
 

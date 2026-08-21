@@ -47,7 +47,7 @@ if ! command -v python3 >/dev/null 2>&1; then
 	exit 1
 fi
 
-REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+REPO_ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 STATE_DIR="${REPO_ROOT}/.n8n-dev"
 mkdir -p "${STATE_DIR}"
 COOKIE_JAR="${STATE_DIR}/cookies.txt"
@@ -62,7 +62,7 @@ chmod 600 "${COOKIE_JAR}"
 
 wait_ready() {
 	i=0
-	while [ "$i" -lt "$WAIT_SECONDS" ]; do
+	while [ "${i}" -lt "${WAIT_SECONDS}" ]; do
 		if curl -sf "${N8N_BASE}/healthz/readiness" >/dev/null 2>&1; then
 			return 0
 		fi

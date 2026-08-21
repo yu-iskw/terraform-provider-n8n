@@ -130,6 +130,24 @@ func optionalStringValue(v *string) types.String {
 	return types.StringValue(*v)
 }
 
+func optionalBoolPointer(v types.Bool) *bool {
+	if v.IsNull() || v.IsUnknown() {
+		return nil
+	}
+	b := v.ValueBool()
+	return &b
+}
+
+// optionalStringsEqual reports whether two optional Terraform strings match after
+// trim, treating null/unknown/empty as the same absent value.
+func optionalStringsEqual(a, b types.String) bool {
+	ap, bp := optionalStringPointer(a), optionalStringPointer(b)
+	if ap == nil || bp == nil {
+		return ap == bp
+	}
+	return *ap == *bp
+}
+
 // readMarkdownDescription reads the content of a markdown file from the embedded filesystem.
 // The filename parameter should be in the format "internal/provider/docs/..." or "docs/..."
 func readMarkdownDescription(ctx context.Context, filename string) (string, error) {

@@ -8,14 +8,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func optionalBoolPointer(v types.Bool) *bool {
-	if v.IsNull() || v.IsUnknown() {
-		return nil
-	}
-	b := v.ValueBool()
-	return &b
-}
-
 func dynamicObjectToMap(v types.Dynamic) (map[string]any, error) {
 	if v.IsNull() || v.IsUnknown() {
 		return nil, fmt.Errorf("credential data must be a known object")
