@@ -11,15 +11,16 @@ Utilities used by provider tests in `internal/provider`.
 ## `testAccPreCheck(t)`
 
 - Defined in `internal/provider/provider_test.go`.
-- Skips unless `TF_ACC=1`. Extend this function when you add live-API acceptance tests to require environment variables (for example from `.env`).
+- Skips unless `TF_ACC=1`. Requires `N8N_ENDPOINT` and `N8N_API_KEY` for live-API acceptance tests.
+- Prefer `make testacc-docker` (local Compose + bootstrap) over a hosted instance; see [run-acceptance-tests](../run-acceptance-tests/SKILL.md).
+- Prefer `make testacc-docker` (local Compose + bootstrap) over a hosted instance; see [run-acceptance-tests](../run-acceptance-tests/SKILL.md).
 
 ## `testAccProtoV6ProviderFactories`
 
-- Map key must match the provider local name in HCL: `"template"`.
+- Map key must match the provider local name in HCL: `"n8n"`.
 - Uses `providerserver.NewProtocol6WithError(New("test")())`.
 
-## Adding acceptance tests later
+## Adding acceptance tests
 
-- Put Terraform fixtures under `internal/provider/acc_tests/...` if you adopt that layout.
-- Build a `provider "template" { ... }` block from environment variables or literals in test code.
-- Example resource address: `template_example_item.example` (see `examples/resources/template_example_item/resource.tf`).
+- Build a `provider "n8n" { ... }` block (or rely on `N8N_ENDPOINT` / `N8N_API_KEY`).
+- Example resource address: `n8n_workflow.example` (see `examples/resources/n8n_workflow/resource.tf`).

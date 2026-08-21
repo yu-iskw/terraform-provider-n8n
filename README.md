@@ -1,45 +1,54 @@
-# Terraform Provider Template
+# Terraform Provider for n8n
 
-This repository is a template for building custom Terraform providers with the HashiCorp Terraform Plugin Framework.
-
-It includes:
-
-- A generic provider configuration with `endpoint` and sensitive `api_key` attributes
-- Optional `max_concurrent_requests` and `requests_per_second` to cap HTTP concurrency and average rate (defaults: 10 / 10)
-- One example resource, `template_example_item`
-- One example data source, `template_example_item`
-- Documentation, examples, tests, build, lint, and release scaffolding
-
-Replace the placeholder client in `internal/your_service` (YOUR_SERVICE layer), and the example resource and data source, with code for your product API.
+Manage [n8n](https://n8n.io/) workflows as code with Terraform, using the [n8n Public API](https://docs.n8n.io/connect/n8n-api/).
 
 ## Example Usage
 
 ```hcl
 terraform {
   required_providers {
-    template = {
-      source = "example/template"
+    n8n = {
+      source = "yu-iskw/n8n"
     }
   }
 }
 
-provider "template" {
-  endpoint = "https://api.example.com"
+provider "n8n" {
+  endpoint = "https://n8n.example.com"
   api_key  = var.api_key
 
+  # Or export N8N_ENDPOINT and N8N_API_KEY instead.
   # max_concurrent_requests = 5
   # requests_per_second     = 20
 }
 
-resource "template_example_item" "example" {
-  name        = "example"
-  description = "Created by the provider template"
+resource "n8n_workflow" "example" {
+  name   = "example-manual-trigger"
+  active = false
+
+  nodes = jsonencode([
+    {
+      id          = "manual"
+      name        = "When clicking 'Execute workflow'"
+      type        = "n8n-nodes-base.manualTrigger"
+      typeVersion = 1
+      position    = [0, 0]
+      parameters  = {}
+    }
+  ])
+
+  connections = jsonencode({})
+  settings    = jsonencode({})
 }
 
-data "template_example_item" "example" {
-  name = template_example_item.example.name
+data "n8n_workflow" "example" {
+  id = n8n_workflow.example.id
 }
 ```
+
+## Authentication
+
+Create an API key in n8n under **Settings → n8n API**. The provider sends it as the `X-N8N-API-KEY` header.
 
 ## Development
 
@@ -51,4 +60,4 @@ go build -v ./
 go generate ./...
 ```
 
-Use `internal/provider` for Terraform wiring and `internal/your_service` for your API client (rename when you fork; see that directory’s `README.md`).
+Use `internal/provider` for Terraform wiring and `internal/n8n` for the Public API client.

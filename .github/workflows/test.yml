@@ -79,9 +79,9 @@ jobs:
           git diff --compact-summary --exit-code || \
             (echo; echo "Unexpected difference in directories after code generation. Run 'go generate ./...' command and commit."; exit 1)
 
-  # Run acceptance tests in a matrix with Terraform CLI versions
+  # Unit tests across supported Terraform CLI versions (no live n8n; TF_ACC unset).
   test:
-    name: Terraform Provider Acceptance Tests
+    name: Terraform Provider Unit Tests
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -108,14 +108,40 @@ jobs:
       - name: Download dependencies
         run: |
           go mod download
-      - name: Run tests
+      - name: Run unit tests
         run: |
           go test -v -cover ./internal/...
-      # TODO support integration test
-      # - env:
-      #     TF_ACC: "1"
-      #   run: go test -v -cover ./internal/provider/
-      #   timeout-minutes: 10
+
+  # Acceptance tests against a local n8n from docker-compose.dev.yml (no hosted instance / secrets).
+  # Keep this off the Terraform version matrix to avoid multiplying image pulls and startup time.
+  testacc:
+    name: Terraform Provider Acceptance Tests
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v5.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.15.*
+          terraform_wrapper: false
+      - name: Download dependencies
+        run: go mod download
+      - name: Start local n8n
+        run: docker compose -f docker-compose.dev.yml up -d --wait --wait-timeout 120
+      - name: Bootstrap n8n owner and API key
+        run: ./scripts/bootstrap-n8n.sh --github-env
+      - name: Run acceptance tests
+        env:
+          TF_ACC: "1"
+        run: go test -v -cover ./internal/provider/ -timeout 20m
+      - name: Stop local n8n
+        if: always()
+        run: docker compose -f docker-compose.dev.yml down -v
 
   # Run gosec security scanner
   gosec:

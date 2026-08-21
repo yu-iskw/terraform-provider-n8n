@@ -51,6 +51,7 @@ website/vendor
 
 # built binary
 terraform-provider-template
+terraform-provider-n8n
 
 # Test shell
 test*.sh
@@ -60,6 +61,9 @@ vendor/
 
 # .env
 .env
+
+# Local n8n compose bootstrap artifacts (cookies, minted API key)
+.n8n-dev/
 
 # CodeQL
 .codeql_db/

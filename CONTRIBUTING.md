@@ -1,6 +1,6 @@
 # Contributing
 
-This repository is a starting point for custom Terraform providers built with the Terraform Plugin Framework.
+This repository is the Terraform provider for n8n (`yu-iskw/n8n`), built with the Terraform Plugin Framework.
 
 ## Prerequisites
 
@@ -32,20 +32,31 @@ make format
 
 - `main.go`: provider server entry point
 - `internal/provider`: provider implementation, resources, data sources, docs embedded by tests, and unit tests
-- `internal/your_service`: HTTP API client (`Client.HTTP`, YOUR_SERVICE placeholder) with optional rate and concurrency limits (rename when you fork; see `internal/your_service/README.md`)
+- `internal/n8n`: n8n Public API HTTP client (`Client.HTTP`, `X-N8N-API-KEY`, optional rate or concurrency limits)
 - `examples`: Terraform examples used by documentation generation
 - `docs`: generated or hand-maintained provider documentation
 - `tools`: Go tool dependency tracking for code generation and analysis
 - `mise.toml`: optional Trunk CLI pin for mise users
 
-## Adapting The Template
+## Acceptance tests
 
-1. Rename the module path in `go.mod`.
-2. Update the provider address in `main.go`.
-3. Rename the provider type in `internal/provider/provider.go`.
-4. Rename `internal/your_service` to a meaningful import path and package name for your API client; update imports under `internal/provider/` (see `internal/your_service/README.md`).
-5. Replace or extend `internal/your_service` (see `Client.HTTP` and optional provider rate or concurrency attributes) and the example resource/data source files with real API-backed implementations.
-6. Update examples and generated docs.
-7. Run tests, build, and documentation generation.
+Two ways to supply a live n8n Public API for `TF_ACC=1` tests:
 
-Acceptance tests should be added once the provider has a real external API and deterministic test environment.
+### Local Docker (recommended; no hosted instance)
+
+Requires Docker Compose v2, `curl`, and `python3`. Starts pinned n8n from [`docker-compose.dev.yml`](docker-compose.dev.yml), mints an API key via [`scripts/bootstrap-n8n.sh`](scripts/bootstrap-n8n.sh), then runs acceptance tests:
+
+```shell
+make testacc-docker
+# optional: make testacc-docker TESTARGS='-run ^TestAccN8nWorkflow_'
+```
+
+### External instance
+
+Copy `.env.template` to `.env`, set `N8N_ENDPOINT` and `N8N_API_KEY`, then:
+
+```shell
+make testacc TESTARGS='-run ^TestAccN8nWorkflow_'
+```
+
+`make test` stays unit-only (`TF_ACC` unset). Do not point acceptance tests at production n8n.

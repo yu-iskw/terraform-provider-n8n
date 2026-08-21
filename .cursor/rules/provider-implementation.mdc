@@ -6,7 +6,7 @@ Use the HashiCorp Terraform Plugin Framework patterns already present in `intern
 
 - Keep provider configuration in `internal/provider/provider.go`.
 - Use framework `types` in Terraform-facing models.
-- Store shared API clients in `resp.ResourceData` and `resp.DataSourceData` (constructed in `Configure`, typically from `internal/your_service`).
+- Store shared API clients in `resp.ResourceData` and `resp.DataSourceData` (constructed in `Configure`, typically from `internal/n8n`).
 - Keep diagnostics actionable and attribute-specific when possible.
 
 ## Resources

@@ -1,20 +1,17 @@
-// Package yourservice holds the placeholder HTTP API client for the YOUR_SERVICE layer in this template provider.
-// When you fork, rename the directory internal/your_service and this package to match your product API (see README.md here).
-package yourservice
+// Package n8n holds the HTTP API client for the n8n Public API.
+package n8n
 
 import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 )
-
-// DefaultEndpoint is used when the provider omits an explicit endpoint.
-const DefaultEndpoint = "https://api.example.com"
 
 // Defaults for rate and concurrency when the provider omits optional attributes.
 const (
@@ -28,14 +25,15 @@ type Options struct {
 	RPS           float64 // sustained requests per second for the token bucket (default DefaultRPS)
 }
 
-// Client is the template API client. Use HTTP for REST calls; transport applies auth, rate, and concurrency limits.
+// Client is the n8n Public API client. Use HTTP for REST calls; transport applies auth, rate, and concurrency limits.
+// Endpoint is the API base including /api/v1 (for example https://n8n.example.com/api/v1).
 type Client struct {
 	Endpoint string
 	HTTP     *http.Client
 }
 
 // New validates configuration and returns a client for use as provider ResourceData/DataSourceData.
-// opts may be nil; zero fields in opts select DefaultMaxConcurrent and DefaultRPS.
+// endpoint is the n8n instance URL (with or without /api/v1). opts may be nil; zero fields select defaults.
 func New(endpoint, apiKey string, opts *Options) (*Client, error) {
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {
@@ -44,7 +42,12 @@ func New(endpoint, apiKey string, opts *Options) (*Client, error) {
 
 	endpoint = strings.TrimSpace(endpoint)
 	if endpoint == "" {
-		endpoint = DefaultEndpoint
+		return nil, fmt.Errorf("endpoint must not be empty")
+	}
+
+	normalized, err := NormalizeEndpoint(endpoint)
+	if err != nil {
+		return nil, err
 	}
 
 	maxC, rps := DefaultMaxConcurrent, DefaultRPS
@@ -88,12 +91,42 @@ func New(endpoint, apiKey string, opts *Options) (*Client, error) {
 	}
 
 	return &Client{
-		Endpoint: endpoint,
+		Endpoint: normalized,
 		HTTP: &http.Client{
 			Timeout:   60 * time.Second,
 			Transport: rt,
 		},
 	}, nil
+}
+
+// NormalizeEndpoint trims trailing slashes and ensures the path ends with /api/v1.
+func NormalizeEndpoint(endpoint string) (string, error) {
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" {
+		return "", fmt.Errorf("endpoint must not be empty")
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return "", fmt.Errorf("invalid endpoint URL: %w", err)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return "", fmt.Errorf("endpoint must include scheme and host")
+	}
+
+	path := strings.TrimSuffix(u.Path, "/")
+	if !strings.HasSuffix(path, "/api/v1") {
+		if path == "" {
+			path = "/api/v1"
+		} else {
+			path = path + "/api/v1"
+		}
+	}
+	u.Path = path
+	u.RawQuery = ""
+	u.Fragment = ""
+
+	return strings.TrimSuffix(u.String(), "/"), nil
 }
 
 // roundTripper applies rate limit (wait before acquiring concurrency), API key auth, then delegates.
@@ -116,7 +149,7 @@ func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	r2 := req.Clone(ctx)
 	if rt.apiKey != "" {
-		r2.Header.Set("Authorization", "Bearer "+rt.apiKey)
+		r2.Header.Set("X-N8N-API-KEY", rt.apiKey)
 	}
 	return rt.base.RoundTrip(r2)
 }

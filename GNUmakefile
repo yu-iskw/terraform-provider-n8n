@@ -8,6 +8,15 @@ test:
 testacc:
 	TF_ACC=1 go test ./internal/provider/... -v $(TESTARGS) -timeout 120m
 
+# Start local n8n via docker-compose.dev.yml, mint an API key, run acceptance tests.
+# Requires Docker Compose v2, curl, and python3. Does not need a hosted n8n instance.
+.PHONY: testacc-docker
+testacc-docker:
+	docker compose -f docker-compose.dev.yml up -d --wait --wait-timeout 120
+	@set -e; \
+	eval "$$(./scripts/bootstrap-n8n.sh --export)"; \
+	TF_ACC=1 go test ./internal/provider/... -v $(TESTARGS) -timeout 20m
+
 .PHONY: clean
 clean:
 	go clean -cache -modcache -i -r

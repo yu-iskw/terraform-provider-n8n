@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/yu-iskw/terraform-provider-n8n/internal/n8n"
 )
 
 var (
@@ -26,7 +27,7 @@ func NewExampleResource() resource.Resource {
 }
 
 type exampleResource struct {
-	client *yourservice.Client
+	client *n8n.Client
 }
 
 type exampleResourceModel struct {
@@ -62,9 +63,9 @@ func (r *exampleResource) Configure(ctx context.Context, req resource.ConfigureR
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*yourservice.Client)
+	client, ok := req.ProviderData.(*n8n.Client)
 	if !ok {
-		resp.Diagnostics.AddError("Unexpected Resource Configure Type", fmt.Sprintf("Expected *yourservice.Client, got: %T", req.ProviderData))
+		resp.Diagnostics.AddError("Unexpected Resource Configure Type", fmt.Sprintf("Expected *n8n.Client, got: %T", req.ProviderData))
 		return
 	}
 	r.client = client
