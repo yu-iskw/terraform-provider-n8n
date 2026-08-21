@@ -7,7 +7,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/yu-iskw/terraform-provider-n8n/internal/n8n"
 )
 
@@ -18,20 +17,6 @@ var (
 
 type workflowDataSource struct {
 	client *n8n.Client
-}
-
-type workflowDataSourceModel struct {
-	ID           types.String `tfsdk:"id"`
-	Name         types.String `tfsdk:"name"`
-	Nodes        types.String `tfsdk:"nodes"`
-	Connections  types.String `tfsdk:"connections"`
-	Settings     types.String `tfsdk:"settings"`
-	Active       types.Bool   `tfsdk:"active"`
-	VersionID    types.String `tfsdk:"version_id"`
-	CreatedAt    types.String `tfsdk:"created_at"`
-	UpdatedAt    types.String `tfsdk:"updated_at"`
-	IsArchived   types.Bool   `tfsdk:"is_archived"`
-	TriggerCount types.Int64  `tfsdk:"trigger_count"`
 }
 
 func NewWorkflowDataSource() datasource.DataSource {
@@ -110,7 +95,7 @@ func (d *workflowDataSource) Configure(ctx context.Context, req datasource.Confi
 }
 
 func (d *workflowDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var config workflowDataSourceModel
+	var config workflowModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -127,18 +112,6 @@ func (d *workflowDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	state := workflowDataSourceModel{
-		ID:           types.StringValue(wf.ID),
-		Name:         types.StringValue(wf.Name),
-		Nodes:        types.StringValue(rawJSONString(wf.Nodes)),
-		Connections:  types.StringValue(rawJSONString(wf.Connections)),
-		Settings:     types.StringValue(rawJSONString(wf.Settings)),
-		Active:       types.BoolValue(wf.Active),
-		VersionID:    types.StringValue(wf.VersionID),
-		CreatedAt:    types.StringValue(wf.CreatedAt),
-		UpdatedAt:    types.StringValue(wf.UpdatedAt),
-		IsArchived:   types.BoolValue(wf.IsArchived),
-		TriggerCount: types.Int64Value(int64(wf.TriggerCount)),
-	}
+	state := workflowModelFromAPI(wf, nil)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

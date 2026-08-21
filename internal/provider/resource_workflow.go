@@ -14,7 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/yu-iskw/terraform-provider-n8n/internal/n8n"
 )
 
@@ -26,20 +25,6 @@ var (
 
 type workflowResource struct {
 	client *n8n.Client
-}
-
-type workflowResourceModel struct {
-	ID           types.String `tfsdk:"id"`
-	Name         types.String `tfsdk:"name"`
-	Nodes        types.String `tfsdk:"nodes"`
-	Connections  types.String `tfsdk:"connections"`
-	Settings     types.String `tfsdk:"settings"`
-	Active       types.Bool   `tfsdk:"active"`
-	VersionID    types.String `tfsdk:"version_id"`
-	CreatedAt    types.String `tfsdk:"created_at"`
-	UpdatedAt    types.String `tfsdk:"updated_at"`
-	IsArchived   types.Bool   `tfsdk:"is_archived"`
-	TriggerCount types.Int64  `tfsdk:"trigger_count"`
 }
 
 func NewWorkflowResource() resource.Resource {
@@ -128,13 +113,13 @@ func (r *workflowResource) Configure(ctx context.Context, req resource.Configure
 }
 
 func (r *workflowResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan workflowResourceModel
+	var plan workflowModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	created, err := r.client.CreateWorkflow(ctx, n8n.WorkflowCreate{
+	created, err := r.client.CreateWorkflow(ctx, n8n.WorkflowWrite{
 		Name:        plan.Name.ValueString(),
 		Nodes:       json.RawMessage(plan.Nodes.ValueString()),
 		Connections: json.RawMessage(plan.Connections.ValueString()),
@@ -145,22 +130,24 @@ func (r *workflowResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	wantActive := plan.Active.ValueBool()
-	wf := created
-	if wantActive {
-		wf, err = r.client.ActivateWorkflow(ctx, created.ID)
-		if err != nil {
-			resp.Diagnostics.AddError("Error activating workflow", err.Error())
-			return
-		}
+	wf, err := r.ensureWorkflowActive(ctx, created.ID, plan.Active.ValueBool(), created.Active)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error activating workflow",
+			fmt.Sprintf("Workflow %q was created but active state could not be applied: %v", created.ID, err),
+		)
+		return
+	}
+	if wf == nil {
+		wf = created
 	}
 
-	state := flattenWorkflow(wf, plan)
+	state := workflowModelFromAPI(wf, &plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
 func (r *workflowResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state workflowResourceModel
+	var state workflowModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -177,48 +164,59 @@ func (r *workflowResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	next := flattenWorkflow(wf, state)
+	next := workflowModelFromAPI(wf, &state)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &next)...)
 }
 
 func (r *workflowResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan workflowResourceModel
+	var plan, prior workflowModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &prior)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	updated, err := r.client.UpdateWorkflow(ctx, plan.ID.ValueString(), n8n.WorkflowUpdate{
-		Name:        plan.Name.ValueString(),
-		Nodes:       json.RawMessage(plan.Nodes.ValueString()),
-		Connections: json.RawMessage(plan.Connections.ValueString()),
-		Settings:    rawJSONOrEmptyObject(plan.Settings.ValueString()),
-	})
-	if err != nil {
-		resp.Diagnostics.AddError("Error updating workflow", err.Error())
-		return
-	}
-
-	wf := updated
-	wantActive := plan.Active.ValueBool()
-	if wantActive != updated.Active {
-		if wantActive {
-			wf, err = r.client.ActivateWorkflow(ctx, plan.ID.ValueString())
-		} else {
-			wf, err = r.client.DeactivateWorkflow(ctx, plan.ID.ValueString())
+	var wf *n8n.Workflow
+	if workflowDocumentChanged(plan, prior) {
+		updated, err := r.client.UpdateWorkflow(ctx, plan.ID.ValueString(), n8n.WorkflowWrite{
+			Name:        plan.Name.ValueString(),
+			Nodes:       json.RawMessage(plan.Nodes.ValueString()),
+			Connections: json.RawMessage(plan.Connections.ValueString()),
+			Settings:    rawJSONOrEmptyObject(plan.Settings.ValueString()),
+		})
+		if err != nil {
+			resp.Diagnostics.AddError("Error updating workflow", err.Error())
+			return
 		}
+		wf = updated
+		next, err := r.ensureWorkflowActive(ctx, plan.ID.ValueString(), plan.Active.ValueBool(), updated.Active)
 		if err != nil {
 			resp.Diagnostics.AddError("Error updating workflow active state", err.Error())
 			return
 		}
+		if next != nil {
+			wf = next
+		}
+	} else {
+		// Active-only: skip PUT, toggle active, then re-read for complete computed fields.
+		if _, err := r.ensureWorkflowActive(ctx, plan.ID.ValueString(), plan.Active.ValueBool(), prior.Active.ValueBool()); err != nil {
+			resp.Diagnostics.AddError("Error updating workflow active state", err.Error())
+			return
+		}
+		got, err := r.client.GetWorkflow(ctx, plan.ID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading workflow after update", err.Error())
+			return
+		}
+		wf = got
 	}
 
-	state := flattenWorkflow(wf, plan)
+	state := workflowModelFromAPI(wf, &plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
 func (r *workflowResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state workflowResourceModel
+	var state workflowModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -239,22 +237,14 @@ func (r *workflowResource) ImportState(ctx context.Context, req resource.ImportS
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func flattenWorkflow(wf *n8n.Workflow, prior workflowResourceModel) workflowResourceModel {
-	nodes := preferConfigJSON(prior.Nodes.ValueString(), rawJSONString(wf.Nodes))
-	connections := preferConfigJSON(prior.Connections.ValueString(), rawJSONString(wf.Connections))
-	settings := preferConfigJSON(prior.Settings.ValueString(), rawJSONString(wf.Settings))
-
-	return workflowResourceModel{
-		ID:           types.StringValue(wf.ID),
-		Name:         types.StringValue(wf.Name),
-		Nodes:        types.StringValue(nodes),
-		Connections:  types.StringValue(connections),
-		Settings:     types.StringValue(settings),
-		Active:       types.BoolValue(wf.Active),
-		VersionID:    types.StringValue(wf.VersionID),
-		CreatedAt:    types.StringValue(wf.CreatedAt),
-		UpdatedAt:    types.StringValue(wf.UpdatedAt),
-		IsArchived:   types.BoolValue(wf.IsArchived),
-		TriggerCount: types.Int64Value(int64(wf.TriggerCount)),
+// ensureWorkflowActive activates or deactivates when want differs from current.
+// Returns nil, nil when no API call is needed.
+func (r *workflowResource) ensureWorkflowActive(ctx context.Context, id string, want, current bool) (*n8n.Workflow, error) {
+	if want == current {
+		return nil, nil
 	}
+	if want {
+		return r.client.ActivateWorkflow(ctx, id)
+	}
+	return r.client.DeactivateWorkflow(ctx, id)
 }

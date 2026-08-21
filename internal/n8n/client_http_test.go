@@ -107,7 +107,7 @@ func TestWorkflowCRUD(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/workflows":
-			var in WorkflowCreate
+			var in WorkflowWrite
 			if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 				t.Errorf("decode create: %v", err)
 			}
@@ -135,7 +135,7 @@ func TestWorkflowCRUD(t *testing.T) {
 				TriggerCount: 0,
 			})
 		case r.Method == http.MethodPut && r.URL.Path == "/api/v1/workflows/wf-1":
-			var in WorkflowUpdate
+			var in WorkflowWrite
 			_ = json.NewDecoder(r.Body).Decode(&in)
 			_ = json.NewEncoder(w).Encode(Workflow{
 				ID:          "wf-1",
@@ -171,7 +171,7 @@ func TestWorkflowCRUD(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	created, err := client.CreateWorkflow(context.Background(), WorkflowCreate{
+	created, err := client.CreateWorkflow(context.Background(), WorkflowWrite{
 		Name:        "demo",
 		Nodes:       json.RawMessage(`[{"id":"1"}]`),
 		Connections: json.RawMessage(`{}`),
@@ -192,7 +192,7 @@ func TestWorkflowCRUD(t *testing.T) {
 		t.Fatalf("got name=%q", got.Name)
 	}
 
-	_, err = client.UpdateWorkflow(context.Background(), "wf-1", WorkflowUpdate{
+	_, err = client.UpdateWorkflow(context.Background(), "wf-1", WorkflowWrite{
 		Name:        "demo2",
 		Nodes:       json.RawMessage(`[{"id":"1"}]`),
 		Connections: json.RawMessage(`{}`),

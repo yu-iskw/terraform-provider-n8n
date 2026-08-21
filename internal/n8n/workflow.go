@@ -48,16 +48,8 @@ type Workflow struct {
 	TriggerCount int             `json:"triggerCount,omitempty"`
 }
 
-// WorkflowCreate is the request body for POST /workflows.
-type WorkflowCreate struct {
-	Name        string          `json:"name"`
-	Nodes       json.RawMessage `json:"nodes"`
-	Connections json.RawMessage `json:"connections"`
-	Settings    json.RawMessage `json:"settings"`
-}
-
-// WorkflowUpdate is the request body for PUT /workflows/{id}.
-type WorkflowUpdate struct {
+// WorkflowWrite is the request body for POST /workflows and PUT /workflows/{id}.
+type WorkflowWrite struct {
 	Name        string          `json:"name"`
 	Nodes       json.RawMessage `json:"nodes"`
 	Connections json.RawMessage `json:"connections"`
@@ -72,7 +64,9 @@ func (c *Client) url(parts ...string) string {
 	return base
 }
 
-func (c *Client) doJSON(ctx context.Context, method, url string, body any, out any) error {
+// doJSON performs an HTTP JSON request. When notFoundID is non-empty, 404 responses
+// become NotFoundError with Resource "workflow" and that ID.
+func (c *Client) doJSON(ctx context.Context, method, url string, body any, out any, notFoundID string) error {
 	var reader io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -103,7 +97,11 @@ func (c *Client) doJSON(ctx context.Context, method, url string, body any, out a
 	}
 
 	if resp.StatusCode == http.StatusNotFound {
-		return &NotFoundError{Resource: "workflow", ID: url}
+		id := notFoundID
+		if id == "" {
+			id = url
+		}
+		return &NotFoundError{Resource: "workflow", ID: id}
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return &APIError{StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(respBody))}
@@ -119,12 +117,9 @@ func (c *Client) doJSON(ctx context.Context, method, url string, body any, out a
 }
 
 // CreateWorkflow creates a workflow via POST /workflows.
-func (c *Client) CreateWorkflow(ctx context.Context, in WorkflowCreate) (*Workflow, error) {
-	if len(in.Settings) == 0 {
-		in.Settings = json.RawMessage(`{}`)
-	}
+func (c *Client) CreateWorkflow(ctx context.Context, in WorkflowWrite) (*Workflow, error) {
 	var out Workflow
-	if err := c.doJSON(ctx, http.MethodPost, c.url("workflows"), in, &out); err != nil {
+	if err := c.doJSON(ctx, http.MethodPost, c.url("workflows"), in, &out, ""); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -133,27 +128,16 @@ func (c *Client) CreateWorkflow(ctx context.Context, in WorkflowCreate) (*Workfl
 // GetWorkflow retrieves a workflow via GET /workflows/{id}.
 func (c *Client) GetWorkflow(ctx context.Context, id string) (*Workflow, error) {
 	var out Workflow
-	if err := c.doJSON(ctx, http.MethodGet, c.url("workflows", id), nil, &out); err != nil {
-		if nf, ok := err.(*NotFoundError); ok {
-			nf.ID = id
-			return nil, nf
-		}
+	if err := c.doJSON(ctx, http.MethodGet, c.url("workflows", id), nil, &out, id); err != nil {
 		return nil, err
 	}
 	return &out, nil
 }
 
 // UpdateWorkflow updates a workflow via PUT /workflows/{id}.
-func (c *Client) UpdateWorkflow(ctx context.Context, id string, in WorkflowUpdate) (*Workflow, error) {
-	if len(in.Settings) == 0 {
-		in.Settings = json.RawMessage(`{}`)
-	}
+func (c *Client) UpdateWorkflow(ctx context.Context, id string, in WorkflowWrite) (*Workflow, error) {
 	var out Workflow
-	if err := c.doJSON(ctx, http.MethodPut, c.url("workflows", id), in, &out); err != nil {
-		if nf, ok := err.(*NotFoundError); ok {
-			nf.ID = id
-			return nil, nf
-		}
+	if err := c.doJSON(ctx, http.MethodPut, c.url("workflows", id), in, &out, id); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -161,22 +145,13 @@ func (c *Client) UpdateWorkflow(ctx context.Context, id string, in WorkflowUpdat
 
 // DeleteWorkflow deletes a workflow via DELETE /workflows/{id}.
 func (c *Client) DeleteWorkflow(ctx context.Context, id string) error {
-	err := c.doJSON(ctx, http.MethodDelete, c.url("workflows", id), nil, nil)
-	if nf, ok := err.(*NotFoundError); ok {
-		nf.ID = id
-		return nf
-	}
-	return err
+	return c.doJSON(ctx, http.MethodDelete, c.url("workflows", id), nil, nil, id)
 }
 
 // ActivateWorkflow activates a workflow via POST /workflows/{id}/activate.
 func (c *Client) ActivateWorkflow(ctx context.Context, id string) (*Workflow, error) {
 	var out Workflow
-	if err := c.doJSON(ctx, http.MethodPost, c.url("workflows", id, "activate"), nil, &out); err != nil {
-		if nf, ok := err.(*NotFoundError); ok {
-			nf.ID = id
-			return nil, nf
-		}
+	if err := c.doJSON(ctx, http.MethodPost, c.url("workflows", id, "activate"), nil, &out, id); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -185,11 +160,7 @@ func (c *Client) ActivateWorkflow(ctx context.Context, id string) (*Workflow, er
 // DeactivateWorkflow deactivates a workflow via POST /workflows/{id}/deactivate.
 func (c *Client) DeactivateWorkflow(ctx context.Context, id string) (*Workflow, error) {
 	var out Workflow
-	if err := c.doJSON(ctx, http.MethodPost, c.url("workflows", id, "deactivate"), nil, &out); err != nil {
-		if nf, ok := err.(*NotFoundError); ok {
-			nf.ID = id
-			return nil, nf
-		}
+	if err := c.doJSON(ctx, http.MethodPost, c.url("workflows", id, "deactivate"), nil, &out, id); err != nil {
 		return nil, err
 	}
 	return &out, nil

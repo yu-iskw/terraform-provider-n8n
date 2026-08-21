@@ -1,10 +1,10 @@
 package provider
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
@@ -54,15 +54,7 @@ func jsonSemanticEqual(a, b string) bool {
 	if err := json.Unmarshal([]byte(b), &vb); err != nil {
 		return false
 	}
-	ba, err := json.Marshal(va)
-	if err != nil {
-		return false
-	}
-	bb, err := json.Marshal(vb)
-	if err != nil {
-		return false
-	}
-	return bytes.Equal(ba, bb)
+	return reflect.DeepEqual(va, vb)
 }
 
 // preferConfigJSON keeps the Terraform/config JSON when it is semantically equal

@@ -129,7 +129,7 @@ func NormalizeEndpoint(endpoint string) (string, error) {
 	return strings.TrimSuffix(u.String(), "/"), nil
 }
 
-// roundTripper applies rate limit (wait before acquiring concurrency), API key auth, then delegates.
+// roundTripper applies concurrency limit, then rate limit, then API key auth, then delegates.
 type roundTripper struct {
 	apiKey string
 	lim    *rate.Limiter
@@ -139,13 +139,14 @@ type roundTripper struct {
 
 func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
-	if err := rt.lim.Wait(ctx); err != nil {
-		return nil, err
-	}
+	// Acquire concurrency first so rate tokens are not spent while queued.
 	if err := rt.sem.Acquire(ctx, 1); err != nil {
 		return nil, err
 	}
 	defer rt.sem.Release(1)
+	if err := rt.lim.Wait(ctx); err != nil {
+		return nil, err
+	}
 
 	r2 := req.Clone(ctx)
 	if rt.apiKey != "" {
