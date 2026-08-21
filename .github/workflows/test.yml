@@ -67,7 +67,9 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v5.0.1
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
-          terraform_version: latest
+          # Pin to match .terraform-version / local docs generation. `latest` drifts
+          # Optional+Computed / write-only schema rendering across Terraform releases.
+          terraform_version: 1.11.0
           terraform_wrapper: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:

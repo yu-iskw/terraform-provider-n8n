@@ -78,7 +78,7 @@ func runTypedCredentialAccBasic(t *testing.T, tc typedCredentialAccCase) {
 	name := acctest.RandomWithPrefix("tf-n8n-cred")
 	fixtureDir := "n8n_" + tc.spec.TerraformSuffix
 	address := "n8n_" + tc.spec.TerraformSuffix + ".test"
-	typed := typedResourceFromSpec(tc.spec)
+	typed := typedResourceFromSpec(t, tc.spec)
 
 	createConfig, err := ReadAccTestResource([]string{"resources", fixtureDir, "010_create.tf"})
 	if err != nil {
@@ -105,7 +105,7 @@ func runTypedCredentialAccBasic(t *testing.T, tc typedCredentialAccCase) {
 				ResourceName:            address,
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: typedImportIgnore(tc.spec),
+				ImportStateVerifyIgnore: typedImportIgnore(t, tc.spec),
 			},
 			{
 				Config: getProviderConfig() + replaceAccName(updateConfig, name),
@@ -295,12 +295,18 @@ func typedCredentialAccCases() []typedCredentialAccCase {
 	}
 }
 
-func typedResourceFromSpec(spec typedCredentialSpec) *typedCredentialResource {
-	return newTypedCredentialResource(spec).(*typedCredentialResource)
+func typedResourceFromSpec(t *testing.T, spec typedCredentialSpec) *typedCredentialResource {
+	t.Helper()
+	typed, ok := newTypedCredentialResource(spec).(*typedCredentialResource)
+	if !ok {
+		t.Fatalf("newTypedCredentialResource(%q) did not return *typedCredentialResource", spec.TerraformSuffix)
+	}
+	return typed
 }
 
-func typedImportIgnore(spec typedCredentialSpec) []string {
-	typed := typedResourceFromSpec(spec)
+func typedImportIgnore(t *testing.T, spec typedCredentialSpec) []string {
+	t.Helper()
+	typed := typedResourceFromSpec(t, spec)
 	ignore := make([]string, 0, len(typed.secretKeys)+len(typed.stateKeys)+3)
 	ignore = append(ignore, typed.secretKeys...)
 	ignore = append(ignore, typed.stateKeys...)
