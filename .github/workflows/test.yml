@@ -67,7 +67,9 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v5.0.1
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
-          terraform_version: latest
+          # Terraform 1.11 does not export write_only in providers schema JSON;
+          # 1.15+ does, which tfplugindocs needs for Write-only annotations.
+          terraform_version: 1.15.0
           terraform_wrapper: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -76,12 +78,17 @@ jobs:
       - run: go generate ./...
       - name: git diff
         run: |
-          git diff --compact-summary --exit-code || \
-            (echo; echo "Unexpected difference in directories after code generation. Run 'go generate ./...' command and commit."; exit 1)
+          if ! git diff --compact-summary --exit-code; then
+            echo
+            echo "Unexpected difference in directories after code generation. Run 'go generate ./...' with Terraform 1.15+ and commit."
+            echo
+            git --no-pager diff -- docs/ examples/ || true
+            exit 1
+          fi
 
-  # Run acceptance tests in a matrix with Terraform CLI versions
+  # Unit tests across supported Terraform CLI versions (no live n8n; TF_ACC unset).
   test:
-    name: Terraform Provider Acceptance Tests
+    name: Terraform Provider Unit Tests
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -90,8 +97,6 @@ jobs:
       matrix:
         # list whatever Terraform versions here you would like to support
         terraform:
-          - 1.11.*
-          - 1.12.*
           - 1.13.*
           - 1.14.*
           - 1.15.*
@@ -108,14 +113,43 @@ jobs:
       - name: Download dependencies
         run: |
           go mod download
-      - name: Run tests
+      - name: Run unit tests
         run: |
           go test -v -cover ./internal/...
-      # TODO support integration test
-      # - env:
-      #     TF_ACC: "1"
-      #   run: go test -v -cover ./internal/provider/
-      #   timeout-minutes: 10
+
+  # Acceptance tests against pinned Community n8n (docker-compose.dev.yml).
+  # Bootstrap mints a Public API key via /rest; tests call /api/v1 only.
+  # Licensed APIs (n8n_project, n8n_folder) skip on Community 403.
+  # Credential CRUD is available on Community (write-only data needs Terraform 1.11+).
+  testacc:
+    name: Terraform Provider Acceptance Tests
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v5.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.15.*
+          terraform_wrapper: false
+      - name: Download dependencies
+        run: go mod download
+      - name: Start Community n8n
+        run: docker compose -f docker-compose.dev.yml up -d --wait --wait-timeout 180
+      - name: Bootstrap owner and Public API key
+        run: scripts/bootstrap-n8n.sh --github-env
+      - name: Run acceptance tests
+        env:
+          TF_ACC: "1"
+          TF_ACC_TERRAFORM_VERSION: 1.15.0
+        run: go test -v -cover ./internal/provider/ -timeout 20m
+      - name: Stop n8n
+        if: always()
+        run: docker compose -f docker-compose.dev.yml down -v
 
   # Run gosec security scanner
   gosec:

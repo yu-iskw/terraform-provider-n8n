@@ -1,5 +1,11 @@
 default: test
 
+# Pin Terraform for TF_ACC so tfenv shims do not fall back to a global
+# version when tests run in a temp directory without .terraform-version.
+# Write-only credential data requires Terraform 1.11+.
+TF_ACC_TERRAFORM_VERSION ?= $(shell cat .terraform-version)
+export TF_ACC_TERRAFORM_VERSION
+
 .PHONY: test
 test:
 	unset TF_ACC && cd "internal/" && go test -count=1 -v ./...
@@ -7,6 +13,19 @@ test:
 .PHONY: testacc
 testacc:
 	TF_ACC=1 go test ./internal/provider/... -v $(TESTARGS) -timeout 120m
+
+# Start pinned Community n8n (docker-compose.dev.yml), mint an API key via /rest
+# (scripts/bootstrap-n8n.sh), then run TF_ACC tests against /api/v1.
+# Licensed APIs (team projects, folders) skip on Community 403.
+# Credential CRUD is available on Community.
+# Requires Docker Compose v2, curl, and python3.
+.PHONY: testacc-docker
+testacc-docker:
+	docker compose -f docker-compose.dev.yml up -d --wait --wait-timeout 180
+	@set -e; \
+	trap 'docker compose -f docker-compose.dev.yml down -v' EXIT; \
+	eval "$$(./scripts/bootstrap-n8n.sh --export)"; \
+	TF_ACC=1 go test ./internal/provider/... -v $(TESTARGS) -timeout 20m
 
 .PHONY: clean
 clean:

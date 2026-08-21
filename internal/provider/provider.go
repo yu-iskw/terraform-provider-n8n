@@ -16,52 +16,52 @@ package provider
 
 import (
 	"context"
+	"os"
 
-	yourservice "github.com/example/terraform-provider-template/internal/your_service"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/yu-iskw/terraform-provider-n8n/internal/n8n"
 )
 
-// Ensure templateProvider satisfies the provider interface.
-var _ provider.Provider = &templateProvider{}
+// Ensure n8nProvider satisfies the provider interface.
+var _ provider.Provider = &n8nProvider{}
 
-// templateProvider defines the provider implementation.
-type templateProvider struct {
+// n8nProvider defines the provider implementation.
+type n8nProvider struct {
 	// version is set to the provider version on release, "dev" when the
 	// provider is built and ran locally, and "test" when running acceptance
 	// testing.
 	version string
 }
 
-// templateProviderModel describes the provider data model.
-type templateProviderModel struct {
+// n8nProviderModel describes the provider data model.
+type n8nProviderModel struct {
 	Endpoint              types.String  `tfsdk:"endpoint"`
 	APIKey                types.String  `tfsdk:"api_key"`
 	MaxConcurrentRequests types.Int64   `tfsdk:"max_concurrent_requests"`
 	RequestsPerSecond     types.Float64 `tfsdk:"requests_per_second"`
 }
 
-func (p *templateProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "template"
+func (p *n8nProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "n8n"
 	resp.Version = p.version
 }
 
-func (p *templateProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+func (p *n8nProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A template Terraform provider with example resources and data sources.",
+		Description: "Manage n8n team projects, folders, and credentials via the n8n Public API.",
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "Example API endpoint. Defaults to `https://api.example.com` when omitted.",
+				MarkdownDescription: "n8n instance base URL (for example `https://n8n.example.com` or `https://<subdomain>.app.n8n.cloud`). `/api/v1` is appended when missing. May also be set via the `N8N_ENDPOINT` environment variable.",
 				Optional:            true,
 			},
 			"api_key": schema.StringAttribute{
-				MarkdownDescription: "Example API key used by the template client.",
-				Required:            true,
+				MarkdownDescription: "n8n API key sent as the `X-N8N-API-KEY` header. May also be set via the `N8N_API_KEY` environment variable.",
+				Optional:            true,
 				Sensitive:           true,
 			},
 			"max_concurrent_requests": schema.Int64Attribute{
@@ -76,16 +76,14 @@ func (p *templateProvider) Schema(ctx context.Context, req provider.SchemaReques
 	}
 }
 
-func (p *templateProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	// Retrieve provider data from configuration
-	var config templateProviderModel
+func (p *n8nProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	var config n8nProviderModel
 	diags := req.Config.Get(ctx, &config)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Validate configuration
 	if config.Endpoint.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("endpoint"),
@@ -94,21 +92,42 @@ func (p *templateProvider) Configure(ctx context.Context, req provider.Configure
 		)
 		return
 	}
-	if config.APIKey.IsUnknown() || config.APIKey.IsNull() {
+	if config.APIKey.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("api_key"),
-			"Missing API Key",
-			"Please set the `api_key` attribute for the template provider.",
+			"Unknown API Key",
+			"The provider cannot configure the API client when `api_key` is unknown.",
 		)
 		return
 	}
 
-	endpoint := ""
-	if !config.Endpoint.IsNull() {
+	endpoint := os.Getenv("N8N_ENDPOINT")
+	if !config.Endpoint.IsNull() && config.Endpoint.ValueString() != "" {
 		endpoint = config.Endpoint.ValueString()
 	}
+	apiKey := os.Getenv("N8N_API_KEY")
+	if !config.APIKey.IsNull() && config.APIKey.ValueString() != "" {
+		apiKey = config.APIKey.ValueString()
+	}
 
-	opts := &yourservice.Options{}
+	if endpoint == "" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("endpoint"),
+			"Missing Endpoint",
+			"Set the `endpoint` provider attribute or the `N8N_ENDPOINT` environment variable.",
+		)
+		return
+	}
+	if apiKey == "" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("api_key"),
+			"Missing API Key",
+			"Set the `api_key` provider attribute or the `N8N_API_KEY` environment variable.",
+		)
+		return
+	}
+
+	opts := &n8n.Options{}
 	if !config.MaxConcurrentRequests.IsNull() && !config.MaxConcurrentRequests.IsUnknown() {
 		opts.MaxConcurrent = config.MaxConcurrentRequests.ValueInt64()
 	}
@@ -116,10 +135,9 @@ func (p *templateProvider) Configure(ctx context.Context, req provider.Configure
 		opts.RPS = config.RequestsPerSecond.ValueFloat64()
 	}
 
-	client, err := yourservice.New(endpoint, config.APIKey.ValueString(), opts)
+	client, err := n8n.New(endpoint, apiKey, opts)
 	if err != nil {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("api_key"),
+		resp.Diagnostics.AddError(
 			"Unable to Configure API Client",
 			err.Error(),
 		)
@@ -129,25 +147,64 @@ func (p *templateProvider) Configure(ctx context.Context, req provider.Configure
 	resp.ResourceData = client
 }
 
-func (p *templateProvider) Resources(ctx context.Context) []func() resource.Resource {
+func (p *n8nProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewExampleItemResource,
+		NewProjectResource,
+		NewFolderResource,
+		NewCredentialResource,
+		NewCredentialHTTPHeaderAuthResource,
+		NewCredentialHTTPBasicAuthResource,
+		NewCredentialHTTPBearerAuthResource,
+		NewCredentialSlackAPIResource,
+		NewCredentialNotionAPIResource,
+		NewCredentialN8nAPIResource,
+		NewCredentialJiraSoftwareCloudAPIResource,
+		NewCredentialHubspotAppTokenResource,
+		NewCredentialSerpAPIResource,
+		NewCredentialOpenAIAPIResource,
+		NewCredentialAnthropicAPIResource,
+		NewCredentialAzureOpenAIAPIResource,
+		NewCredentialOllamaAPIResource,
+		NewCredentialJWTAuthResource,
+		NewCredentialGmailOAuth2Resource,
+		NewCredentialGoogleSheetsTriggerOAuth2APIResource,
+		NewCredentialGoogleCalendarOAuth2APIResource,
+		NewCredentialGoogleCloudStorageOAuth2APIResource,
+		NewCredentialGoogleDriveOAuth2APIResource,
+		NewCredentialGoogleAPIResource,
+		NewCredentialGooglePalmAPIResource,
+		NewCredentialMCPOAuth2APIResource,
+		NewCredentialGitHubOAuth2APIResource,
+		NewCredentialSalesforceOAuth2APIResource,
+		NewCredentialTwitterOAuth2APIResource,
+		NewCredentialMicrosoftGraphSecurityOAuth2APIResource,
+		NewCredentialGitHubAPIResource,
+		NewCredentialSendGridAPIResource,
+		NewCredentialStripeAPIResource,
+		NewCredentialTwilioAPIResource,
+		NewCredentialSMTPResource,
+		NewCredentialAWSResource,
+		NewCredentialGoogleSheetsOAuth2APIResource,
+		NewCredentialOAuth2APIResource,
+		NewCredentialHTTPMultipleHeadersAuthResource,
 	}
 }
 
-func (p *templateProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
+func (p *n8nProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewExampleItemDataSource,
+		NewProjectDataSource,
+		NewProjectsDataSource,
+		NewFolderDataSource,
+		NewFoldersDataSource,
+		NewCredentialDataSource,
+		NewCredentialsDataSource,
+		NewCredentialSchemaDataSource,
 	}
-}
-
-func (p *templateProvider) Functions(ctx context.Context) []func() function.Function {
-	return []func() function.Function{}
 }
 
 func New(version string) func() provider.Provider {
 	return func() provider.Provider {
-		return &templateProvider{
+		return &n8nProvider{
 			version: version,
 		}
 	}

@@ -21,7 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 )
 
-func TestProviderSchemaUsesGenericConfiguration(t *testing.T) {
+func TestProviderSchemaUsesN8nConfiguration(t *testing.T) {
 	p := New("test")()
 
 	var resp provider.SchemaResponse
@@ -38,11 +38,5 @@ func TestProviderSchemaUsesGenericConfiguration(t *testing.T) {
 	}
 	if _, ok := resp.Schema.Attributes["requests_per_second"]; !ok {
 		t.Fatal("expected provider schema to include requests_per_second")
-	}
-	if _, ok := resp.Schema.Attributes["host"]; ok {
-		t.Fatal("did not expect provider schema to include host")
-	}
-	if _, ok := resp.Schema.Attributes["token"]; ok {
-		t.Fatal("did not expect provider schema to include token")
 	}
 }

@@ -33,6 +33,11 @@ linters:
       - common-false-positives
       - legacy
       - std-error-handling
+    rules:
+      - path: _acc_test\.go$
+        linters:
+          - gosec
+        text: "G101:"
     paths:
       - tools
       - third_party$

@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/yu-iskw/terraform-provider-n8n/internal/n8n"
 )
 
 var (
@@ -21,7 +22,7 @@ func NewExampleDataSource() datasource.DataSource {
 }
 
 type exampleDataSource struct {
-	client *yourservice.Client
+	client *n8n.Client
 }
 
 type exampleDataSourceModel struct {
@@ -50,9 +51,9 @@ func (d *exampleDataSource) Configure(ctx context.Context, req datasource.Config
 	if req.ProviderData == nil {
 		return
 	}
-	client, ok := req.ProviderData.(*yourservice.Client)
+	client, ok := req.ProviderData.(*n8n.Client)
 	if !ok {
-		resp.Diagnostics.AddError("Unexpected Data Source Configure Type", fmt.Sprintf("Expected *yourservice.Client, got: %T", req.ProviderData))
+		resp.Diagnostics.AddError("Unexpected Data Source Configure Type", fmt.Sprintf("Expected *n8n.Client, got: %T", req.ProviderData))
 		return
 	}
 	d.client = client

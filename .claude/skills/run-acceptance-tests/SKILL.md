@@ -7,39 +7,49 @@ description: Guide execution of Terraform provider acceptance tests (TF_ACC) wit
 
 ## Purpose
 
-Standardize running acceptance tests in this repository. Acceptance tests use `terraform-plugin-testing` with `TF_ACC=1` and may call a live API once you add real resources and wire credentials.
+Standardize running acceptance tests in this repository. Acceptance tests use `terraform-plugin-testing` with `TF_ACC=1` and call a live n8n Public API (`/api/v1` + `X-N8N-API-KEY`). Do not use a mock n8n server.
 
 ## Prerequisites
 
-### 1. When acceptance tests exist
+Live-API tests need `N8N_ENDPOINT` and `N8N_API_KEY` (see `testAccPreCheck` in `internal/provider/provider_test.go`).
 
-Before running acceptance tests, confirm how `testAccPreCheck` and test configs expect credentials. This template ships with fast unit tests only; when you add `TestAcc...` cases, document required environment variables (for example values from `.env.template` in the repository root: `TEMPLATE_ENDPOINT`, `TEMPLATE_API_KEY`).
+### Option A: Docker Compose Community n8n (recommended local/CI)
 
-### If credentials are required and missing
+Requires Docker Compose v2, curl, and python3.
 
-- Copy `.env.template` to `.env` when you introduce live-API tests: `cp .env.template .env`
-- Fill in values before running `make testacc`.
+- **Command**: `make testacc-docker`
+- **Details**: Starts pinned n8n from [`docker-compose.dev.yml`](../../../docker-compose.dev.yml), waits for `/healthz/readiness`, runs [`scripts/bootstrap-n8n.sh`](../../../scripts/bootstrap-n8n.sh) to create an owner and Public API key via `/rest` (harness only), then `TF_ACC=1 go test ./internal/provider/...`.
+- Targeted: `make testacc-docker TESTARGS='-run ^TestAccN8n_'`
+- Licensed resources (`n8n_project`, custom roles) **skip** on Community 403. Folder APIs skip without `feat:folders`.
+
+### Option B: External licensed instance
+
+- Copy `.env.template` to `.env`: `cp .env.template .env`
+- Set `N8N_ENDPOINT` and `N8N_API_KEY`, then `make testacc`.
+- Use this for team-project CRUD (`feat:projectRole:admin`).
 
 ## Workflow
 
-### 1. Full acceptance suite
+### 1. Full acceptance suite (already-configured endpoint)
 
 - **Command**: `make testacc`
-- **Details**: Runs `go test ./internal/provider/...` with `TF_ACC=1`.
-- **Warning**: Slow and may create or change real infrastructure once tests target a live API.
+- **Details**: Runs `go test ./internal/provider/...` with `TF_ACC=1`. Expects `N8N_ENDPOINT` / `N8N_API_KEY` already in the environment.
 
 ### 2. Targeted acceptance tests
 
 - **Command**: `make testacc TESTARGS="-run <Pattern>"`
-- **Example**: `make testacc TESTARGS="-run TestAccExampleItem"`
+- **Example**: `make testacc TESTARGS="-run ^TestAccN8nProject_"`
 
 ## Distinction from unit tests
 
-- **Unit tests**: `make test`. Does not set `TF_ACC`.
-- **Acceptance tests**: `make testacc`. Sets `TF_ACC=1`.
+- **Unit tests**: `make test`. Does not set `TF_ACC`. httptest JSON fixtures in `*_test.go` are fine.
+- **Acceptance tests (Docker)**: `make testacc-docker`. Starts real Community n8n, then sets `TF_ACC=1`.
+- **Acceptance tests (external)**: `make testacc`. Sets `TF_ACC=1` against a pre-existing endpoint.
 
 ## Troubleshooting
 
-- **Timeouts**: `make testacc TESTARGS="-timeout 120m"`.
-- **Authentication**: Verify variables in `.env` match what `testAccPreCheck` and test configs expect.
-- **Cleanup**: After failures against a real API, remove stray resources in the target system or via API if tests did not roll back.
+- **Timeouts**: `make testacc TESTARGS="-timeout 120m"` or `make testacc-docker TESTARGS="-timeout 20m"`.
+- **Compose not healthy**: `docker compose -f docker-compose.dev.yml ps` and logs; healthcheck uses `/healthz/readiness` via Node inside the image.
+- **Bootstrap CSRF/401**: ensure `browser-id` is sent (script does this) and `N8N_SECURE_COOKIE=false` for HTTP localhost.
+- **Authentication**: Verify `N8N_ENDPOINT` / `N8N_API_KEY` match what `testAccPreCheck` expects.
+- **Cleanup**: After failures against an external API, remove stray resources. Docker Compose is ephemeral (no volume): `docker compose -f docker-compose.dev.yml down -v`.

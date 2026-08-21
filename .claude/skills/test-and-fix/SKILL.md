@@ -39,7 +39,7 @@ Restore confidence with a full `make test` when done.
 
 ## Common failures
 
-- **Import / compile errors** — fix `internal/provider` or `internal/your_service` (or other packages under `internal/`).
+- **Import / compile errors** — fix `internal/provider` or `internal/n8n` (or other packages under `internal/`).
 - **Assertion / golden failures** — adjust implementation or test; keep behavior intentional.
 - **Flaky timing** — prefer deterministic tests; avoid sleep-only fixes unless already the project pattern.
 

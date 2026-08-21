@@ -1,45 +1,68 @@
-# Terraform Provider Template
+# Terraform Provider for n8n
 
-This repository is a template for building custom Terraform providers with the HashiCorp Terraform Plugin Framework.
+Manage [n8n](https://n8n.io/) **team projects**, **folders**, and **credentials** as code with Terraform, using the [n8n Public API](https://docs.n8n.io/connect/n8n-api).
 
-It includes:
+Team-project APIs require an n8n license that includes `feat:projectRole:admin`. Folder APIs require `feat:folders`. Community self-hosted n8n returns HTTP 403 for those operations. Credential CRUD is available on Community Edition. Write-only secret attributes require Terraform 1.11 or later.
 
-- A generic provider configuration with `endpoint` and sensitive `api_key` attributes
-- Optional `max_concurrent_requests` and `requests_per_second` to cap HTTP concurrency and average rate (defaults: 10 / 10)
-- One example resource, `template_example_item`
-- One example data source, `template_example_item`
-- Documentation, examples, tests, build, lint, and release scaffolding
-
-Replace the placeholder client in `internal/your_service` (YOUR_SERVICE layer), and the example resource and data source, with code for your product API.
+Prefer a typed credential resource when one exists (`n8n_credential_http_header_auth`, `n8n_credential_slack_api`, `n8n_credential_aws`, `n8n_credential_github_api`, `n8n_credential_open_ai_api`, `n8n_credential_anthropic_api`, and others). Generic `n8n_credential` remains the escape hatch. Do not manage the same credential id with both. There is no `n8n_credential_mcp_authentication` resource: MCP Authentication is a node option that selects Header Auth, Bearer Auth, MCP OAuth2, or Multiple Headers Auth. Do not confuse `githubApi` with `githubOAuth2Api`, `googleSheetsOAuth2Api` with the Sheets Trigger type, `aws` with `awsAssumeRole`, or `openAiApi` with `azureOpenAiApi`. Azure Entra ID for Cognitive Services is a separate n8n type (`azureEntraCognitiveServicesOAuth2Api`), not an auth mode on `n8n_credential_azure_open_ai_api`.
 
 ## Example Usage
 
 ```hcl
 terraform {
   required_providers {
-    template = {
-      source = "example/template"
+    n8n = {
+      source = "yu-iskw/n8n"
     }
   }
 }
 
-provider "template" {
-  endpoint = "https://api.example.com"
+provider "n8n" {
+  endpoint = "https://n8n.example.com"
   api_key  = var.api_key
 
+  # Or export N8N_ENDPOINT and N8N_API_KEY instead.
   # max_concurrent_requests = 5
   # requests_per_second     = 20
 }
 
-resource "template_example_item" "example" {
-  name        = "example"
-  description = "Created by the provider template"
+resource "n8n_project" "platform" {
+  name              = "platform"
+  delete_protection = false
 }
 
-data "template_example_item" "example" {
-  name = template_example_item.example.name
+resource "n8n_folder" "ingest" {
+  project_id        = n8n_project.platform.id
+  name              = "ingest"
+  delete_protection = false
+}
+
+resource "n8n_credential_http_header_auth" "header" {
+  name              = "http-header"
+  header_name       = "X-Test"
+  value             = "placeholder"
+  data_version      = 1
+  delete_protection = false
+}
+
+data "n8n_project" "platform" {
+  id = n8n_project.platform.id
+}
+
+data "n8n_projects" "all" {}
+
+data "n8n_folders" "in_platform" {
+  project_id = n8n_project.platform.id
+}
+
+data "n8n_credential_schema" "header" {
+  type = "httpHeaderAuth"
 }
 ```
+
+## Authentication
+
+Create an API key in n8n under **Settings → n8n API**. The provider sends it as the `X-N8N-API-KEY` header.
 
 ## Development
 
@@ -51,4 +74,4 @@ go build -v ./
 go generate ./...
 ```
 
-Use `internal/provider` for Terraform wiring and `internal/your_service` for your API client (rename when you fork; see that directory’s `README.md`).
+Use `internal/provider` for Terraform wiring and `internal/n8n` for the Public API client (`models`, versioned `api/v1/<resource>`, `services`, `controllers`).

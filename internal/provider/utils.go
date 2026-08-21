@@ -19,8 +19,12 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
+	"runtime"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -33,6 +37,115 @@ const (
 
 func isIntegrationTestMode() bool {
 	return os.Getenv(integrationTestModeEnvVar) == "1"
+}
+
+func getPathToAccTests() (string, error) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("failed to get current file path")
+	}
+	accTestsPath := path.Join(path.Dir(filename), "acc_tests")
+	if _, err := os.Stat(accTestsPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("acc_tests directory does not exist at %s", accTestsPath)
+	}
+	return accTestsPath, nil
+}
+
+func getPathToAccTestResource(elements []string) (string, error) {
+	pathToAccTests, err := getPathToAccTests()
+	if err != nil {
+		return "", err
+	}
+	allElements := append([]string{pathToAccTests}, elements...)
+	accTestResourcePath := path.Join(allElements...)
+	cleanedAccTestsPath := path.Clean(pathToAccTests)
+	cleanedResourcePath := path.Clean(accTestResourcePath)
+	if !strings.HasPrefix(cleanedResourcePath, cleanedAccTestsPath) {
+		return "", fmt.Errorf("attempted to access file outside acc_tests directory: %s", accTestResourcePath)
+	}
+	if _, err := os.Stat(accTestResourcePath); os.IsNotExist(err) {
+		return "", fmt.Errorf("acc_tests resource does not exist at %s", accTestResourcePath)
+	}
+	return accTestResourcePath, nil
+}
+
+// ReadAccTestResource reads a .tf fixture from internal/provider/acc_tests.
+func ReadAccTestResource(elements []string) (string, error) {
+	p, err := getPathToAccTestResource(elements)
+	if err != nil {
+		return "", err
+	}
+	resource, err := os.ReadFile(filepath.Clean(p))
+	if err != nil {
+		return "", err
+	}
+	return string(resource), nil
+}
+
+func getProviderConfig() string {
+	return `
+provider "n8n" {
+  # endpoint and api_key from N8N_ENDPOINT / N8N_API_KEY
+}
+`
+}
+
+const (
+	folderResourceIDPrefix = "projects/"
+	folderResourceIDMid    = "/folders/"
+)
+
+func formatFolderResourceID(projectID, folderID string) string {
+	return folderResourceIDPrefix + projectID + folderResourceIDMid + folderID
+}
+
+func parseFolderResourceID(id string) (projectID, folderID string, err error) {
+	id = strings.TrimSpace(id)
+	rest, ok := strings.CutPrefix(id, folderResourceIDPrefix)
+	if !ok {
+		return "", "", fmt.Errorf("folder import id %q must be projects/{project_id}/folders/{folder_id}", id)
+	}
+	projectID, folderID, ok = strings.Cut(rest, folderResourceIDMid)
+	if !ok || projectID == "" || folderID == "" || strings.Contains(folderID, "/") {
+		return "", "", fmt.Errorf("folder import id %q must be projects/{project_id}/folders/{folder_id}", id)
+	}
+	return projectID, folderID, nil
+}
+
+func optionalStringPointer(v types.String) *string {
+	if v.IsNull() || v.IsUnknown() {
+		return nil
+	}
+	s := strings.TrimSpace(v.ValueString())
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func optionalStringValue(v *string) types.String {
+	if v == nil || strings.TrimSpace(*v) == "" {
+		return types.StringNull()
+	}
+	return types.StringValue(*v)
+}
+
+func optionalBoolPointer(v types.Bool) *bool {
+	if v.IsNull() || v.IsUnknown() {
+		return nil
+	}
+	b := v.ValueBool()
+	return &b
+}
+
+// optionalStringsEqual reports whether two optional Terraform strings match after
+// trim, treating null/unknown/empty as the same absent value.
+func optionalStringsEqual(a, b types.String) bool {
+	ap, bp := optionalStringPointer(a), optionalStringPointer(b)
+	if ap == nil || bp == nil {
+		return ap == bp
+	}
+	return *ap == *bp
 }
 
 // readMarkdownDescription reads the content of a markdown file from the embedded filesystem.
