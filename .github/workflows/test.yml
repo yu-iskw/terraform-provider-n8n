@@ -67,9 +67,9 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v5.0.1
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
-          # Pin to match .terraform-version / local docs generation. `latest` drifts
-          # Optional+Computed / write-only schema rendering across Terraform releases.
-          terraform_version: 1.11.0
+          # Terraform 1.11 does not export write_only in providers schema JSON;
+          # 1.15+ does, which tfplugindocs needs for Write-only annotations.
+          terraform_version: 1.15.0
           terraform_wrapper: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -80,7 +80,7 @@ jobs:
         run: |
           if ! git diff --compact-summary --exit-code; then
             echo
-            echo "Unexpected difference in directories after code generation. Run 'go generate ./...' command and commit."
+            echo "Unexpected difference in directories after code generation. Run 'go generate ./...' with Terraform 1.15+ and commit."
             echo
             git --no-pager diff -- docs/ examples/ || true
             exit 1
