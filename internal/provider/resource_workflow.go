@@ -71,7 +71,7 @@ func (r *workflowResource) Schema(ctx context.Context, req resource.SchemaReques
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
-				MarkdownDescription: "Whether the workflow is active. Create/update writes the document first, then activates or deactivates.",
+				MarkdownDescription: "Whether the workflow is active. Create/update writes the document first, then activates or deactivates. Activation requires a trigger, webhook, or polling node — a manual-trigger-only workflow cannot be activated.",
 			},
 			"version_id": schema.StringAttribute{
 				Computed:            true,
@@ -132,6 +132,9 @@ func (r *workflowResource) Create(ctx context.Context, req resource.CreateReques
 
 	wf, err := r.ensureWorkflowActive(ctx, created.ID, plan.Active.ValueBool(), created.Active)
 	if err != nil {
+		// Persist the created resource so the next apply updates instead of duplicating.
+		partial := workflowModelFromAPI(created, &plan)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &partial)...)
 		resp.Diagnostics.AddError(
 			"Error activating workflow",
 			fmt.Sprintf("Workflow %q was created but active state could not be applied: %v", created.ID, err),
@@ -191,6 +194,8 @@ func (r *workflowResource) Update(ctx context.Context, req resource.UpdateReques
 		wf = updated
 		next, err := r.ensureWorkflowActive(ctx, plan.ID.ValueString(), plan.Active.ValueBool(), updated.Active)
 		if err != nil {
+			partial := workflowModelFromAPI(updated, &plan)
+			resp.Diagnostics.Append(resp.State.Set(ctx, &partial)...)
 			resp.Diagnostics.AddError("Error updating workflow active state", err.Error())
 			return
 		}

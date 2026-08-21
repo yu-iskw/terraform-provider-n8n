@@ -1,5 +1,7 @@
 resource "n8n_workflow" "example" {
-  name   = "example-manual-trigger"
+  name = "example-manual-trigger"
+  # Manual-trigger workflows cannot be activated; use a webhook/schedule/polling
+  # trigger (or keep active=false) when you need an active workflow.
   active = false
 
   nodes = jsonencode([

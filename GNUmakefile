@@ -14,6 +14,7 @@ testacc:
 testacc-docker:
 	docker compose -f docker-compose.dev.yml up -d --wait --wait-timeout 120
 	@set -e; \
+	trap 'docker compose -f docker-compose.dev.yml down -v' EXIT; \
 	eval "$$(./scripts/bootstrap-n8n.sh --export)"; \
 	TF_ACC=1 go test ./internal/provider/... -v $(TESTARGS) -timeout 20m
 

@@ -1,4 +1,3 @@
-// Package n8n holds the HTTP API client for the n8n Public API.
 package n8n
 
 import (
@@ -50,6 +49,11 @@ func New(endpoint, apiKey string, opts *Options) (*Client, error) {
 		return nil, err
 	}
 
+	endpointURL, err := url.Parse(normalized)
+	if err != nil {
+		return nil, fmt.Errorf("invalid normalized endpoint: %w", err)
+	}
+
 	maxC, rps := DefaultMaxConcurrent, DefaultRPS
 	if opts != nil {
 		if opts.MaxConcurrent < 0 {
@@ -75,10 +79,11 @@ func New(endpoint, apiKey string, opts *Options) (*Client, error) {
 	sem := semaphore.NewWeighted(maxC)
 
 	rt := &roundTripper{
-		apiKey: apiKey,
-		lim:    lim,
-		sem:    sem,
-		base:   http.DefaultTransport,
+		apiKey:  apiKey,
+		apiHost: endpointURL.Host,
+		lim:     lim,
+		sem:     sem,
+		base:    http.DefaultTransport,
 	}
 
 	return &Client{
@@ -86,6 +91,15 @@ func New(endpoint, apiKey string, opts *Options) (*Client, error) {
 		HTTP: &http.Client{
 			Timeout:   60 * time.Second,
 			Transport: rt,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= 10 {
+					return fmt.Errorf("stopped after 10 redirects")
+				}
+				if len(via) > 0 && !sameHTTPHost(req.URL, via[0].URL) {
+					return fmt.Errorf("refusing cross-host redirect from %q to %q", via[0].URL.Host, req.URL.Host)
+				}
+				return nil
+			},
 		},
 	}, nil
 }
@@ -120,12 +134,17 @@ func NormalizeEndpoint(endpoint string) (string, error) {
 	return strings.TrimSuffix(u.String(), "/"), nil
 }
 
+func sameHTTPHost(a, b *url.URL) bool {
+	return strings.EqualFold(a.Host, b.Host)
+}
+
 // roundTripper applies concurrency limit, then rate limit, then API key auth, then delegates.
 type roundTripper struct {
-	apiKey string
-	lim    *rate.Limiter
-	sem    *semaphore.Weighted
-	base   http.RoundTripper
+	apiKey  string
+	apiHost string
+	lim     *rate.Limiter
+	sem     *semaphore.Weighted
+	base    http.RoundTripper
 }
 
 func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -140,6 +159,9 @@ func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	r2 := req.Clone(ctx)
-	r2.Header.Set("X-N8N-API-KEY", rt.apiKey)
+	// Only attach the API key for the configured API host (defense in depth vs redirects).
+	if strings.EqualFold(r2.URL.Host, rt.apiHost) {
+		r2.Header.Set("X-N8N-API-KEY", rt.apiKey)
+	}
 	return rt.base.RoundTrip(r2)
 }

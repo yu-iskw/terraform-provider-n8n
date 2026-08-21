@@ -14,7 +14,9 @@ Manages an n8n workflow via the Public API. Provide `nodes`, `connections`, and 
 
 ```terraform
 resource "n8n_workflow" "example" {
-  name   = "example-manual-trigger"
+  name = "example-manual-trigger"
+  # Manual-trigger workflows cannot be activated; use a webhook/schedule/polling
+  # trigger (or keep active=false) when you need an active workflow.
   active = false
 
   nodes = jsonencode([
@@ -44,7 +46,7 @@ resource "n8n_workflow" "example" {
 
 ### Optional
 
-- `active` (Boolean) Whether the workflow is active. Create/update writes the document first, then activates or deactivates.
+- `active` (Boolean) Whether the workflow is active. Create/update writes the document first, then activates or deactivates. Activation requires a trigger, webhook, or polling node — a manual-trigger-only workflow cannot be activated.
 - `settings` (String) JSON object of workflow settings. Defaults to `{}`.
 
 ### Read-Only

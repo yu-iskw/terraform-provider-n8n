@@ -55,7 +55,8 @@ func jsonSemanticEqual(a, b string) bool {
 }
 
 // preferConfigJSON keeps the Terraform/config JSON when it is semantically equal
-// to the API response, avoiding noisy drift from n8n adding default fields.
+// to the API response (whitespace / key order). When the API adds fields, the
+// API JSON is kept so state matches remote.
 func preferConfigJSON(configJSON, apiJSON string) string {
 	if configJSON == "" {
 		return apiJSON

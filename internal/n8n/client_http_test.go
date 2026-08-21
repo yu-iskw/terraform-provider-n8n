@@ -98,6 +98,41 @@ func TestClientRateLimitsSerialRequests(t *testing.T) {
 	}
 }
 
+func TestClientRefusesCrossHostRedirect(t *testing.T) {
+	var targetHit atomic.Bool
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		targetHit.Store(true)
+		if r.Header.Get("X-N8N-API-KEY") != "" {
+			t.Error("API key forwarded to cross-host redirect target")
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(target.Close)
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+"/landed", http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+
+	client, err := New(origin.URL, "leak-me-key", &Options{RPS: 100})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, client.Endpoint, nil)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	resp, err := client.HTTP.Do(req)
+	if err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("expected error refusing cross-host redirect")
+	}
+	if targetHit.Load() {
+		t.Fatal("cross-host redirect target was contacted")
+	}
+}
+
 func TestWorkflowCRUD(t *testing.T) {
 	var activated, deactivated bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

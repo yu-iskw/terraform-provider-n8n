@@ -53,6 +53,12 @@ mkdir -p "${STATE_DIR}"
 COOKIE_JAR="${STATE_DIR}/cookies.txt"
 API_KEY_FILE="${STATE_DIR}/api-key"
 rm -f "${COOKIE_JAR}"
+# Pre-create the jar so curl writes into a 0600 file (session cookies).
+(
+	umask 077
+	touch "${COOKIE_JAR}"
+)
+chmod 600 "${COOKIE_JAR}"
 
 wait_ready() {
 	i=0
@@ -205,6 +211,8 @@ github-env)
 		echo "GITHUB_ENV is not set" >&2
 		exit 1
 	fi
+	# Mask before writing so Actions logs do not leak the minted key.
+	echo "::add-mask::${N8N_API_KEY}"
 	{
 		echo "N8N_ENDPOINT=${N8N_ENDPOINT}"
 		echo "N8N_API_KEY=${N8N_API_KEY}"
