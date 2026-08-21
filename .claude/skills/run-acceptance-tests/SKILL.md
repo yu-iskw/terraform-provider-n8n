@@ -7,26 +7,26 @@ description: Guide execution of Terraform provider acceptance tests (TF_ACC) wit
 
 ## Purpose
 
-Standardize running acceptance tests in this repository. Acceptance tests use `terraform-plugin-testing` with `TF_ACC=1` and call a live n8n Public API (`/api/v1` + `X-N8N-API-KEY`).
+Standardize running acceptance tests in this repository. Acceptance tests use `terraform-plugin-testing` with `TF_ACC=1` and call a live n8n Public API (`/api/v1` + `X-N8N-API-KEY`). Do not use a mock n8n server.
 
 ## Prerequisites
 
 Live-API tests need `N8N_ENDPOINT` and `N8N_API_KEY` (see `testAccPreCheck` in `internal/provider/provider_test.go`).
 
-### Option A: Docker fixture (recommended)
+### Option A: Docker Compose Community n8n (recommended local/CI)
 
-Requires Docker Compose v2.
+Requires Docker Compose v2, curl, and python3.
 
 - **Command**: `make testacc-docker`
-- **Details**: Builds [`docker-compose.acc.yml`](../../../docker-compose.acc.yml), a stand-in for GET/POST/PUT/DELETE `/api/v1/projects`, then `TF_ACC=1 go test ./internal/provider/...`. Covers CRUD, import, and `delete_protection`.
-- Targeted: `make testacc-docker TESTARGS='-run ^TestAccN8nProject_'`
-
-Community n8n from [`docker-compose.dev.yml`](../../../docker-compose.dev.yml) still 403s `feat:projectRole:admin`; project tests skip there.
+- **Details**: Starts pinned n8n from [`docker-compose.dev.yml`](../../../docker-compose.dev.yml), waits for `/healthz/readiness`, runs [`scripts/bootstrap-n8n.sh`](../../../scripts/bootstrap-n8n.sh) to create an owner and Public API key via `/rest` (harness only), then `TF_ACC=1 go test ./internal/provider/...`.
+- Targeted: `make testacc-docker TESTARGS='-run ^TestAccN8n_'`
+- Licensed resources (`n8n_project`, custom roles) **skip** on Community 403. Folder APIs skip without `feat:folders`.
 
 ### Option B: External licensed instance
 
 - Copy `.env.template` to `.env`: `cp .env.template .env`
 - Set `N8N_ENDPOINT` and `N8N_API_KEY`, then `make testacc`.
+- Use this for team-project CRUD (`feat:projectRole:admin`).
 
 ## Workflow
 
@@ -42,8 +42,8 @@ Community n8n from [`docker-compose.dev.yml`](../../../docker-compose.dev.yml) s
 
 ## Distinction from unit tests
 
-- **Unit tests**: `make test`. Does not set `TF_ACC`.
-- **Acceptance tests (Docker)**: `make testacc-docker`. Starts local n8n, then sets `TF_ACC=1`.
+- **Unit tests**: `make test`. Does not set `TF_ACC`. httptest JSON fixtures in `*_test.go` are fine.
+- **Acceptance tests (Docker)**: `make testacc-docker`. Starts real Community n8n, then sets `TF_ACC=1`.
 - **Acceptance tests (external)**: `make testacc`. Sets `TF_ACC=1` against a pre-existing endpoint.
 
 ## Troubleshooting
@@ -52,4 +52,4 @@ Community n8n from [`docker-compose.dev.yml`](../../../docker-compose.dev.yml) s
 - **Compose not healthy**: `docker compose -f docker-compose.dev.yml ps` and logs; healthcheck uses `/healthz/readiness` via Node inside the image.
 - **Bootstrap CSRF/401**: ensure `browser-id` is sent (script does this) and `N8N_SECURE_COOKIE=false` for HTTP localhost.
 - **Authentication**: Verify `N8N_ENDPOINT` / `N8N_API_KEY` match what `testAccPreCheck` expects.
-- **Cleanup**: After failures against an external API, remove stray resources. Docker fixture is ephemeral (no volume); `docker compose -f docker-compose.dev.yml down -v` resets it.
+- **Cleanup**: After failures against an external API, remove stray resources. Docker Compose is ephemeral (no volume): `docker compose -f docker-compose.dev.yml down -v`.

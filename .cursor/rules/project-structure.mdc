@@ -1,8 +1,7 @@
 # Project Structure Guide
 
 - `internal/provider`: Terraform provider implementation, resources, data sources, embedded docs, and tests.
-- `internal/api/controllers`: Terraform-facing orchestrators used by resources and data sources.
-- `internal/n8n`: n8n Public API client package (`models/`, `api/v1/<resource>/`, `services/`).
+- `internal/n8n`: n8n Public API client package (`models/`, `api/v1/<resource>/`, `services/`, `controllers/`). Terraform-facing orchestrators live in `controllers/`.
 - `examples`: Terraform examples used by documentation generation.
 - `docs`: Provider documentation.
 - `tools`: Go tool dependency tracking.

@@ -12,7 +12,7 @@ Utilities used by provider tests in `internal/provider`.
 
 - Defined in `internal/provider/provider_test.go`.
 - Skips unless `TF_ACC=1`. Requires `N8N_ENDPOINT` and `N8N_API_KEY` for live-API acceptance tests.
-- Prefer `make testacc` against a **licensed** n8n for project APIs (`feat:projectRole:admin`). Community `make testacc-docker` skips those tests.
+- Prefer `make testacc` against a **licensed** n8n for project APIs (`feat:projectRole:admin`). Community `make testacc-docker` starts real n8n and skips those tests on 403.
 
 ## `testAccProtoV6ProviderFactories`
 

@@ -1,6 +1,6 @@
 # Contributing
 
-This repository is the Terraform provider for n8n (`yu-iskw/n8n`), built with the Terraform Plugin Framework. It manages n8n **team projects**, not workflows.
+This repository is the Terraform provider for n8n (`yu-iskw/n8n`), built with the Terraform Plugin Framework. It manages n8n **team projects**, **folders**, and **credentials**, not workflows.
 
 ## Prerequisites
 
@@ -32,8 +32,7 @@ make format
 
 - `main.go`: provider server entry point
 - `internal/provider`: provider implementation, resources, data sources, docs embedded by tests, and unit tests
-- `internal/api/controllers`: Terraform-facing orchestrators used by resources and data sources
-- `internal/n8n`: n8n Public API HTTP client (`Client.HTTP`, `X-N8N-API-KEY`, optional rate or concurrency limits) plus `models/`, versioned `api/v1/<resource>/`, and `services/`
+- `internal/n8n`: n8n Public API HTTP client (`Client.HTTP`, `X-N8N-API-KEY`, optional rate or concurrency limits) plus `models/`, versioned `api/v1/<resource>/`, `services/`, and `controllers/` (Terraform-facing orchestrators used by resources and data sources)
 - `examples`: Terraform examples used by documentation generation
 - `docs`: generated or hand-maintained provider documentation
 - `tools`: Go tool dependency tracking for code generation and analysis
@@ -41,27 +40,29 @@ make format
 
 ## Acceptance tests
 
-Team-project CRUD on a **licensed** n8n needs `feat:projectRole:admin`. Community Docker returns HTTP 403 for those APIs.
+Credential CRUD is available on Community Edition. Write-only secret attributes (generic `data` and typed resource secrets) require Terraform **1.11 or later**. Acceptance tests set `TF_ACC_TERRAFORM_VERSION` from `.terraform-version` (see `GNUmakefile`) so a tfenv global version older than 1.11 is not used when tests run in a temp directory.
 
-### Docker fixture (CRUD, import, delete protection)
+Community Edition Docker can exercise the Public API. Credential CRUD runs on Community. Team-project CRUD still needs `feat:projectRole:admin`; those tests **skip** on Community with HTTP 403. Folder APIs need `feat:folders` (Registered Community or paid). Custom-role writes need Enterprise. For a fuller CE vs licensed matrix (Public API and n8n CLI probe notes), see [`dev/docs/n8n-ce-public-api-and-cli-limits.md`](dev/docs/n8n-ce-public-api-and-cli-limits.md).
 
-`make testacc-docker` builds [`docker-compose.acc.yml`](docker-compose.acc.yml), a Public API stand-in that implements the verified GET/POST/PUT/DELETE `/api/v1/projects` contract. Use this path for local and CI acceptance tests:
+### Docker Compose (Community n8n)
+
+`make testacc-docker` starts pinned n8n from [`docker-compose.dev.yml`](docker-compose.dev.yml), waits for `/healthz/readiness`, then runs [`scripts/bootstrap-n8n.sh`](scripts/bootstrap-n8n.sh). That script is **harness-only**: it calls internal `/rest/owner/setup` (or `/rest/login`) and `/rest/api-keys` to mint a key. The provider never uses `/rest`.
 
 ```shell
 make testacc-docker
-make testacc-docker TESTARGS='-run ^TestAccN8nProject_'
+make testacc-docker TESTARGS='-run ^TestAccN8n_'
 ```
 
-### Licensed instance
+The compose file uses ephemeral SQLite (no volume, no extra Postgres) so each `up` is a clean instance. `N8N_PUBLIC_API_DISABLED` is `false` and `N8N_SECURE_COOKIE` is `false` for HTTP localhost.
+
+### Licensed instance (project and folder CRUD)
 
 Copy `.env.template` to `.env`, set `N8N_ENDPOINT` and `N8N_API_KEY` for a licensed n8n, then:
 
 ```shell
 make testacc TESTARGS='-run ^TestAccN8nProject_'
+make testacc TESTARGS='-run ^TestAccN8nFolder_'
+make testacc TESTARGS='-run ^TestAccN8nCredential_'
 ```
-
-### Community n8n (optional)
-
-[`docker-compose.dev.yml`](docker-compose.dev.yml) still starts pinned Community n8n for live probes. Project acceptance tests skip there with a license 403.
 
 `make test` stays unit-only (`TF_ACC` unset). Do not point acceptance tests at production n8n.

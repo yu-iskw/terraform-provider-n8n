@@ -1,6 +1,10 @@
-# Local / CI n8n fixture for Terraform provider acceptance tests.
-# Slim CE stack only — do not copy the official AI-sandbox Compose.
-# Pin: n8n@2.35.5 (https://github.com/n8n-io/n8n/releases/tag/n8n%402.35.5)
+# Local / CI Community n8n for Terraform provider acceptance tests.
+# Real n8n image — not a mock API. Slim CE stack only (ephemeral SQLite,
+# no extra Postgres service). Pin: n8n@2.35.5
+# https://github.com/n8n-io/n8n/releases/tag/n8n%402.35.5
+#
+# After up: scripts/bootstrap-n8n.sh mints an owner + Public API key via /rest.
+# The provider itself must keep using /api/v1 + X-N8N-API-KEY.
 
 services:
   n8n:

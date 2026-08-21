@@ -55,7 +55,10 @@ OpenAPI when designing Terraform resources.
 | Terraform | **Do not** use CLI help output or CLI commands as the OpenAPI contract                            |
 
 CLI may be useful after the contract is known; investigation must still start
-from OpenAPI + docs.
+from OpenAPI + docs. For Community Edition vs licensed behavior observed via CLI against
+`docker-compose.dev.yml`, see
+[`dev/docs/n8n-ce-public-api-and-cli-limits.md`](../../../../dev/docs/n8n-ce-public-api-and-cli-limits.md)
+(do not treat that matrix as OpenAPI).
 
 ## Quick decision
 

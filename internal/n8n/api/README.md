@@ -10,6 +10,20 @@ api/
       create_project_v1.go
       update_project_v1.go
       delete_project_v1.go
+    folders/           # GET/POST /projects/{projectId}/folders, GET/PATCH/DELETE .../{folderId}
+      list_folders_v1.go
+      create_folder_v1.go
+      get_folder_v1.go
+      update_folder_v1.go
+      delete_folder_v1.go
+    credentials/       # GET/POST /credentials, GET/PATCH/DELETE /credentials/{id}, schema, transfer
+      list_credentials_v1.go
+      create_credential_v1.go
+      get_credential_v1.go
+      update_credential_v1.go
+      delete_credential_v1.go
+      get_credential_schema_v1.go
+      transfer_credential_v1.go
 ```
 
 Callers import the resource package (typically as `projectsv1`) and use `*V1` function names. Shared HTTP (`DoJSON`, `X-N8N-API-KEY`) stays on `internal/n8n.Client`.

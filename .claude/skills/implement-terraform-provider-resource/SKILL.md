@@ -16,7 +16,7 @@ The user should provide:
 1. **Type**: Resource or data source.
 2. **Terraform type name suffix** (e.g., `tag` → `n8n_tag` when `ProviderTypeName` is `n8n`).
 3. **Schema**: Attributes (name, type, required / optional / computed).
-4. **Client operations**: HTTP helpers in `internal/n8n/api/v1/<resource>` and/or a service in `internal/n8n/services`. Terraform CRUD goes through `internal/api/controllers`, not services.
+4. **Client operations**: HTTP helpers in `internal/n8n/api/v1/<resource>` and/or a service in `internal/n8n/services`. Terraform CRUD goes through `internal/n8n/controllers`, not services.
 
 ## Workflow
 

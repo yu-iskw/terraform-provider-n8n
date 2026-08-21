@@ -15,7 +15,7 @@ import (
 // The Public API has no GET /projects/{id}.
 var ErrProjectNotFound = errors.New("project not found")
 
-const maxProjectListPages = 1000
+const maxListPages = 1000
 
 // ProjectService implements project operations, including Read-via-list.
 type ProjectService struct {
@@ -32,7 +32,7 @@ func (s *ProjectService) ListAll(ctx context.Context) ([]models.Project, error) 
 	var all []models.Project
 	cursor := ""
 	seen := make(map[string]struct{})
-	for page := 0; page < maxProjectListPages; page++ {
+	for page := 0; page < maxListPages; page++ {
 		if cursor != "" {
 			if _, ok := seen[cursor]; ok {
 				return nil, fmt.Errorf("project list pagination repeated cursor %q", cursor)
@@ -49,7 +49,7 @@ func (s *ProjectService) ListAll(ctx context.Context) ([]models.Project, error) 
 		}
 		cursor = *list.NextCursor
 	}
-	return nil, fmt.Errorf("project list exceeded %d pages", maxProjectListPages)
+	return nil, fmt.Errorf("project list exceeded %d pages", maxListPages)
 }
 
 // GetByID scans ListAll for id. Missing projects return ErrProjectNotFound.

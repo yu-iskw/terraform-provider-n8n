@@ -53,7 +53,7 @@ func (p *n8nProvider) Metadata(ctx context.Context, req provider.MetadataRequest
 
 func (p *n8nProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manage n8n team projects via the n8n Public API.",
+		Description: "Manage n8n team projects, folders, and credentials via the n8n Public API.",
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
 				MarkdownDescription: "n8n instance base URL (for example `https://n8n.example.com` or `https://<subdomain>.app.n8n.cloud`). `/api/v1` is appended when missing. May also be set via the `N8N_ENDPOINT` environment variable.",
@@ -150,6 +150,31 @@ func (p *n8nProvider) Configure(ctx context.Context, req provider.ConfigureReque
 func (p *n8nProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewProjectResource,
+		NewFolderResource,
+		NewCredentialResource,
+		NewCredentialHTTPHeaderAuthResource,
+		NewCredentialHTTPBasicAuthResource,
+		NewCredentialHTTPBearerAuthResource,
+		NewCredentialSlackAPIResource,
+		NewCredentialNotionAPIResource,
+		NewCredentialN8nAPIResource,
+		NewCredentialJiraSoftwareCloudAPIResource,
+		NewCredentialHubspotAppTokenResource,
+		NewCredentialSerpAPIResource,
+		NewCredentialOpenAIAPIResource,
+		NewCredentialJWTAuthResource,
+		NewCredentialGmailOAuth2Resource,
+		NewCredentialGoogleSheetsTriggerOAuth2APIResource,
+		NewCredentialGoogleCalendarOAuth2APIResource,
+		NewCredentialGoogleCloudStorageOAuth2APIResource,
+		NewCredentialGoogleDriveOAuth2APIResource,
+		NewCredentialGoogleAPIResource,
+		NewCredentialGooglePalmAPIResource,
+		NewCredentialMCPOAuth2APIResource,
+		NewCredentialGitHubOAuth2APIResource,
+		NewCredentialSalesforceOAuth2APIResource,
+		NewCredentialTwitterOAuth2APIResource,
+		NewCredentialMicrosoftGraphSecurityOAuth2APIResource,
 	}
 }
 
@@ -157,6 +182,11 @@ func (p *n8nProvider) DataSources(ctx context.Context) []func() datasource.DataS
 	return []func() datasource.DataSource{
 		NewProjectDataSource,
 		NewProjectsDataSource,
+		NewFolderDataSource,
+		NewFoldersDataSource,
+		NewCredentialDataSource,
+		NewCredentialsDataSource,
+		NewCredentialSchemaDataSource,
 	}
 }
 

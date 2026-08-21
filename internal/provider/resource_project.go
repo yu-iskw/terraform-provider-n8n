@@ -12,8 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/yu-iskw/terraform-provider-n8n/internal/api/controllers"
 	"github.com/yu-iskw/terraform-provider-n8n/internal/n8n"
+	"github.com/yu-iskw/terraform-provider-n8n/internal/n8n/controllers"
 	"github.com/yu-iskw/terraform-provider-n8n/internal/n8n/models"
 )
 

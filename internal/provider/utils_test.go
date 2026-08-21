@@ -60,6 +60,16 @@ func TestReadMarkdownDescriptionEmbedded(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "folder resource",
+			filename: "internal/provider/docs/resources/folder.md",
+			wantErr:  false,
+		},
+		{
+			name:     "credential resource",
+			filename: "internal/provider/docs/resources/credential.md",
+			wantErr:  false,
+		},
+		{
 			name:     "non-existent file",
 			filename: "internal/provider/docs/resources/nonexistent.md",
 			wantErr:  true,

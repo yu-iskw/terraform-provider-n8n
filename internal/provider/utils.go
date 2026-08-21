@@ -24,6 +24,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -87,6 +88,46 @@ provider "n8n" {
   # endpoint and api_key from N8N_ENDPOINT / N8N_API_KEY
 }
 `
+}
+
+const (
+	folderResourceIDPrefix = "projects/"
+	folderResourceIDMid    = "/folders/"
+)
+
+func formatFolderResourceID(projectID, folderID string) string {
+	return folderResourceIDPrefix + projectID + folderResourceIDMid + folderID
+}
+
+func parseFolderResourceID(id string) (projectID, folderID string, err error) {
+	id = strings.TrimSpace(id)
+	rest, ok := strings.CutPrefix(id, folderResourceIDPrefix)
+	if !ok {
+		return "", "", fmt.Errorf("folder import id %q must be projects/{project_id}/folders/{folder_id}", id)
+	}
+	projectID, folderID, ok = strings.Cut(rest, folderResourceIDMid)
+	if !ok || projectID == "" || folderID == "" || strings.Contains(folderID, "/") {
+		return "", "", fmt.Errorf("folder import id %q must be projects/{project_id}/folders/{folder_id}", id)
+	}
+	return projectID, folderID, nil
+}
+
+func optionalStringPointer(v types.String) *string {
+	if v.IsNull() || v.IsUnknown() {
+		return nil
+	}
+	s := strings.TrimSpace(v.ValueString())
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func optionalStringValue(v *string) types.String {
+	if v == nil || strings.TrimSpace(*v) == "" {
+		return types.StringNull()
+	}
+	return types.StringValue(*v)
 }
 
 // readMarkdownDescription reads the content of a markdown file from the embedded filesystem.

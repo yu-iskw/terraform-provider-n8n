@@ -1,8 +1,10 @@
 # Terraform Provider for n8n
 
-Manage [n8n](https://n8n.io/) **team projects** as code with Terraform, using the [n8n Public API](https://docs.n8n.io/connect/n8n-api/projects).
+Manage [n8n](https://n8n.io/) **team projects**, **folders**, and **credentials** as code with Terraform, using the [n8n Public API](https://docs.n8n.io/connect/n8n-api).
 
-Team-project APIs require an n8n license that includes `feat:projectRole:admin` (Enterprise / a licensed instance). Community self-hosted n8n returns HTTP 403 for these operations.
+Team-project APIs require an n8n license that includes `feat:projectRole:admin`. Folder APIs require `feat:folders`. Community self-hosted n8n returns HTTP 403 for those operations. Credential CRUD is available on Community Edition. Write-only secret attributes require Terraform 1.11 or later.
+
+Prefer a typed credential resource when one exists (`n8n_credential_http_header_auth`, `n8n_credential_slack_api`, `n8n_credential_gmail_oauth2`, and others). Generic `n8n_credential` remains the escape hatch. Do not manage the same credential id with both. There is no `n8n_credential_mcp_authentication` resource: MCP Authentication is a node option that selects Header Auth, Bearer Auth, MCP OAuth2, or Multiple Headers Auth.
 
 ## Example Usage
 
@@ -29,11 +31,33 @@ resource "n8n_project" "platform" {
   delete_protection = false
 }
 
+resource "n8n_folder" "ingest" {
+  project_id        = n8n_project.platform.id
+  name              = "ingest"
+  delete_protection = false
+}
+
+resource "n8n_credential_http_header_auth" "header" {
+  name              = "http-header"
+  header_name       = "X-Test"
+  value             = "placeholder"
+  data_version      = 1
+  delete_protection = false
+}
+
 data "n8n_project" "platform" {
   id = n8n_project.platform.id
 }
 
 data "n8n_projects" "all" {}
+
+data "n8n_folders" "in_platform" {
+  project_id = n8n_project.platform.id
+}
+
+data "n8n_credential_schema" "header" {
+  type = "httpHeaderAuth"
+}
 ```
 
 ## Authentication
@@ -50,4 +74,4 @@ go build -v ./
 go generate ./...
 ```
 
-Use `internal/provider` for Terraform wiring, `internal/api/controllers` for resource/data-source orchestration, and `internal/n8n` for the Public API client (`models`, versioned `api/v1/<resource>`, `services`).
+Use `internal/provider` for Terraform wiring and `internal/n8n` for the Public API client (`models`, versioned `api/v1/<resource>`, `services`, `controllers`).

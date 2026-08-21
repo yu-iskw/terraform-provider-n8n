@@ -40,9 +40,18 @@ func IsNotFound(err error) bool {
 // Live Community n8n and n8n Public API tests both use FeatureNotLicensedError for
 // every project HTTP operation when that license flag is off.
 func IsProjectRoleAdminUnlicensed(err error) bool {
+	return isFeatureUnlicensed(err, "feat:projectRole:admin")
+}
+
+// IsFoldersUnlicensed reports a 403 whose body names feat:folders.
+func IsFoldersUnlicensed(err error) bool {
+	return isFeatureUnlicensed(err, "feat:folders")
+}
+
+func isFeatureUnlicensed(err error, feature string) bool {
 	var apiErr *APIError
 	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusForbidden {
 		return false
 	}
-	return strings.Contains(apiErr.Body, "feat:projectRole:admin")
+	return strings.Contains(apiErr.Body, feature)
 }

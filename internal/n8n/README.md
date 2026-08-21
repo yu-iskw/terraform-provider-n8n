@@ -13,8 +13,9 @@ HTTP client for the [n8n Public API](https://docs.n8n.io/connect/n8n-api/).
 - `client.go` / `request.go` / `errors.go`: shared HTTP, JSON, 404, and license-403 helpers
 - `models/`: request and response structs
 - `api/v1/<resource>/`: one file per Public API versioned operation (for example `api/v1/projects/list_projects_v1.go`)
-- `services/`: orchestration for awkward APIs (project Read is list-then-find; there is no `GET /projects/{id}`)
+- `services/`: orchestration for awkward APIs (project Read is list-then-find; there is no `GET /projects/{id}`; folder list uses skip/take, not cursor; credential list uses cursor like projects)
+- `controllers/`: Terraform-facing orchestrators used by resources and data sources
 
-Terraform resources and data sources call [`internal/api/controllers`](../api/controllers), which wrap these services. Do not call `services` from `internal/provider`.
+Terraform resources and data sources call [`controllers/`](controllers), which wrap these services. Do not call `services` from `internal/provider`.
 
 Provider attributes are defined in [`internal/provider/provider.go`](../provider/provider.go).

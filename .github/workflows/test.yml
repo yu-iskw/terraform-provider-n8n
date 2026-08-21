@@ -112,8 +112,10 @@ jobs:
         run: |
           go test -v -cover ./internal/...
 
-  # Acceptance tests against docker-compose.acc.yml (Public API project fixture).
-  # Keep this off the Terraform version matrix to avoid multiplying image pulls and startup time.
+  # Acceptance tests against pinned Community n8n (docker-compose.dev.yml).
+  # Bootstrap mints a Public API key via /rest; tests call /api/v1 only.
+  # Licensed APIs (n8n_project, n8n_folder) skip on Community 403.
+  # Credential CRUD is available on Community (write-only data needs Terraform 1.11+).
   testacc:
     name: Terraform Provider Acceptance Tests
     needs: build
@@ -131,17 +133,18 @@ jobs:
           terraform_wrapper: false
       - name: Download dependencies
         run: go mod download
-      - name: Start n8n project API fixture
-        run: docker compose -f docker-compose.acc.yml up -d --build --wait --wait-timeout 180
+      - name: Start Community n8n
+        run: docker compose -f docker-compose.dev.yml up -d --wait --wait-timeout 180
+      - name: Bootstrap owner and Public API key
+        run: scripts/bootstrap-n8n.sh --github-env
       - name: Run acceptance tests
         env:
           TF_ACC: "1"
-          N8N_ENDPOINT: http://127.0.0.1:5678
-          N8N_API_KEY: tf-acc-fixture-key
+          TF_ACC_TERRAFORM_VERSION: "1.15.0"
         run: go test -v -cover ./internal/provider/ -timeout 20m
-      - name: Stop fixture
+      - name: Stop n8n
         if: always()
-        run: docker compose -f docker-compose.acc.yml down -v
+        run: docker compose -f docker-compose.dev.yml down -v
 
   # Run gosec security scanner
   gosec:

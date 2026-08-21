@@ -4,7 +4,7 @@ Shared guidance for agents working in this repository.
 
 ## Overview
 
-Terraform provider for [n8n](https://n8n.io/), written in Go with the HashiCorp Terraform Plugin Framework. It talks to the n8n Public API and currently manages **team projects** (`n8n_project` resource, `n8n_project` / `n8n_projects` data sources). It does not manage workflows.
+Terraform provider for [n8n](https://n8n.io/), written in Go with the HashiCorp Terraform Plugin Framework. It talks to the n8n Public API and currently manages **team projects** (`n8n_project`), **project folders** (`n8n_folder` resource, `n8n_folder` / `n8n_folders` data sources), and **credentials** (generic `n8n_credential` plus typed resources such as `n8n_credential_http_header_auth` and `n8n_credential_slack_api`; data sources `n8n_credential` / `n8n_credentials` / `n8n_credential_schema`). It does not manage workflows. MCP Authentication is a node option, not a credential type.
 
 ## mise (optional)
 
@@ -22,8 +22,7 @@ If you use [mise](https://mise.jdx.dev/), run `mise trust` in the repo root on f
 
 - `main.go`: provider server entry point (`registry.terraform.io/yu-iskw/n8n`)
 - `internal/provider`: provider schema, configuration, resources, data sources, embedded docs, and tests
-- `internal/api/controllers`: Terraform-facing orchestrators (`n8n_project` resource and data sources call these, not services directly)
-- `internal/n8n`: n8n Public API HTTP client (`X-N8N-API-KEY`, rate and concurrency limits), plus `models/`, versioned `api/v1/<resource>/` (one HTTP op per file), and `services/`
+- `internal/n8n`: n8n Public API HTTP client (`X-N8N-API-KEY`, rate and concurrency limits), plus `models/`, versioned `api/v1/<resource>/` (one HTTP op per file), `services/`, and `controllers/` (Terraform-facing orchestrators; resources and data sources call these, not services directly)
 - `examples`: Terraform examples used by docs generation
 - `docs`: provider documentation
 - `tools`: Go tool dependencies
@@ -31,7 +30,7 @@ If you use [mise](https://mise.jdx.dev/), run `mise trust` in the repo root on f
 
 ## Development Notes
 
-- Prefer real, deterministic tests over mocks.
+- Prefer real, deterministic tests over mocks. Do not add a stand-in n8n HTTP server for acceptance tests.
 - Acceptance tests need `TF_ACC=1`, `N8N_ENDPOINT`, and `N8N_API_KEY`.
-- `make testacc-docker` runs project acceptance tests (CRUD, import, delete protection) against a Public API fixture. Community n8n Docker still returns 403 for `feat:projectRole:admin`.
+- `make testacc-docker` starts Community n8n from `docker-compose.dev.yml` and mints a key with `scripts/bootstrap-n8n.sh` (`/rest` harness only). Licensed APIs skip on 403 (`feat:projectRole:admin` for team projects, `feat:folders` for folders). Credential CRUD runs on Community (write-only `data` needs Terraform 1.11+; `GNUmakefile` sets `TF_ACC_TERRAFORM_VERSION` from `.terraform-version`). Use `make testacc` against a licensed instance for project/folder CRUD tests. CE capability matrix (API + CLI): [`dev/docs/n8n-ce-public-api-and-cli-limits.md`](dev/docs/n8n-ce-public-api-and-cli-limits.md).
 - Git hooks for this repo are **Trunk-only** (`make setup-dev` runs `trunk git-hooks sync`); there is no separate pre-commit install step.
